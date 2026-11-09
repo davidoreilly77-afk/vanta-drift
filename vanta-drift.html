@@ -480,7 +480,7 @@ let p,shots,eb,enemies,pickups,parts,score,lives;
 const BOSS_AT=3900;
 /* ---------- level complete: fireworks and WELL DONE ---------- */
 let CEL=null,FW=[],BUG=null,runId=0,celTxt=null,coins=0,COINS=[];
-const VERSION='v26 · 9 NOV 2026';
+const VERSION='v27 · 9 NOV 2026';
 function makeCelTxt(){const w=380,h=110,c=document.createElement('canvas');c.width=w*S;c.height=h*S;const g=c.getContext('2d');g.scale(S,S);g.textAlign='center';g.textBaseline='middle';
   g.font='700 46px "Chakra Petch", sans-serif';const gr=g.createLinearGradient(0,h/2-24,0,h/2+24);gr.addColorStop(0,'#fff7d6');gr.addColorStop(.5,'#ffb84a');gr.addColorStop(1,'#ff4f7b');
   g.shadowColor='#ff9a3a';g.shadowBlur=28*S;g.fillStyle=gr;g.fillText('WELL DONE',w/2,h/2);g.shadowBlur=0;g.lineWidth=1;g.strokeStyle='rgba(255,255,255,.55)';g.strokeText('WELL DONE',w/2,h/2);return {c,w,h}}
@@ -1035,16 +1035,20 @@ const SHOPSAY={
 const GSYL=['ZRR','GLA','NAK','VUU','PLOO','SKRI','MOK','THU','BZZ','QUA','XI','GOR','BLI','ROK','ZEE','UMP','IKK','OOT','GLORP','SNAK'];
 // turn an English line into Glip's language: one alien word per English word, built from the letters so each line always sounds the same
 function glipSpeak(eng){const words=eng.replace(/[^A-Z !?.]/g,'').split(' ').filter(Boolean).slice(0,9),out=[],syl=[];let tm=60;
-  for(const w of words){let h=0;for(const ch of w)h=(h*31+ch.charCodeAt(0))>>>0;const n=w.length<4?1:1+h%2;let s='';for(let k=0;k<n;k++){s+=GSYL[(h>>>(k*5))%GSYL.length];syl.push({t:tm,d:95+(h>>>(k*3))%45});tm+=118}
+  for(const w of words){let h=0;for(const ch of w)h=(h*31+ch.charCodeAt(0))>>>0;const n=w.length<4?1:1+h%2;let s='';for(let k=0;k<n;k++){s+=GSYL[(h>>>(k*5))%GSYL.length];syl.push({t:tm,d:110+(h>>>(k*3))%50});tm+=150}
     const end=/[!?.]$/.test(w)?w.slice(-1):'';out.push(s+(end==='.'?'!':end));tm+=end?170:55}
   return {alien:out.join(' '),syl,dur:tm}}
-function glipVoice(syl,rage){if(!ac||!soundOn)return;const t0=ac.currentTime;
-  for(const s of syl){const ts=t0+s.t/1000,d=s.d/1000,o=ac.createOscillator(),gn=ac.createGain(),f1=ac.createBiquadFilter(),f2=ac.createBiquadFilter(),am=ac.createOscillator(),ag=ac.createGain();
-    const f=(rage?105:135)*(1+Math.random()*.45);o.type='sawtooth';o.frequency.setValueAtTime(f,ts);o.frequency.exponentialRampToValueAtTime(f*(Math.random()<.5?.72:1.35),ts+d);
-    f1.type=f2.type='bandpass';f1.frequency.value=rnd(380,900);f1.Q.value=5;f2.frequency.value=rnd(1100,2300);f2.Q.value=7;
-    gn.gain.setValueAtTime(.0001,ts);gn.gain.exponentialRampToValueAtTime(rage?1.5:1.1,ts+.012);gn.gain.exponentialRampToValueAtTime(.0001,ts+d);
-    am.type='square';am.frequency.value=rage?41:27;ag.gain.value=rage?.7:.45;am.connect(ag).connect(gn.gain);
-    o.connect(f1).connect(gn);o.connect(f2).connect(gn);gn.connect(smpBus());o.start(ts);o.stop(ts+d+.03);am.start(ts);am.stop(ts+d+.03)}}
+function glipVoice(syl,rage,cx=ac,out=null){if(!cx||(cx===ac&&!soundOn))return;const t0=cx.currentTime+.03,dest=out||smpBus(),end=syl.length?(syl[syl.length-1].t+200)/1000:0;
+  // a gruff throat: buzzing saw through two moving mouth shapes plus chest tone, chopped by a growl; the music ducks while he speaks
+  if(cx===ac&&M.out){M.out.gain.cancelScheduledValues(t0);M.out.gain.setTargetAtTime(.16,t0,.04);M.out.gain.setTargetAtTime(.55,t0+end,.3)}
+  for(const s of syl){const ts=t0+s.t/1000,d=s.d/1000+.05,o=cx.createOscillator(),o2=cx.createOscillator(),gn=cx.createGain(),f1=cx.createBiquadFilter(),f2=cx.createBiquadFilter(),lp=cx.createBiquadFilter(),bg=cx.createGain(),am=cx.createOscillator(),ag=cx.createGain(),mix=cx.createGain();
+    const f=(rage?150:185)*(1+Math.random()*.5),bend=Math.random()<.5?.7:1.4;o.type=o2.type='sawtooth';for(const [x,k] of [[o,1],[o2,1.012]]){x.frequency.setValueAtTime(f*k,ts);x.frequency.exponentialRampToValueAtTime(f*k*bend,ts+d)}
+    f1.type=f2.type='bandpass';f1.Q.value=2.5;f2.Q.value=3.5;const a1=rnd(450,1000),a2=rnd(1300,2600);f1.frequency.setValueAtTime(a1,ts);f1.frequency.linearRampToValueAtTime(rnd(450,1000),ts+d);f2.frequency.setValueAtTime(a2,ts);f2.frequency.linearRampToValueAtTime(rnd(1300,2600),ts+d);
+    lp.type='lowpass';lp.frequency.value=650;bg.gain.value=.5;mix.gain.value=rage?1.15:.9;
+    gn.gain.setValueAtTime(0,ts);gn.gain.linearRampToValueAtTime(1,ts+.015);gn.gain.setValueAtTime(1,ts+d-.04);gn.gain.linearRampToValueAtTime(0,ts+d);
+    am.type='square';am.frequency.value=rage?43:29;ag.gain.value=rage?.4:.25;am.connect(ag).connect(mix.gain);
+    for(const x of [o,o2]){x.connect(f1);x.connect(f2);x.connect(lp)}f1.connect(gn);f2.connect(gn);lp.connect(bg).connect(gn);gn.connect(mix).connect(dest);
+    for(const x of [o,o2,am]){x.start(ts);x.stop(ts+d+.03)}}}
 function glipSay(kind){const list=SHOPSAY[kind];let line;do{line=list[(Math.random()*list.length)|0]}while(list.length>1&&line===SHOP.eng);
   const sp=glipSpeak(line);Object.assign(SHOP,{eng:line,alien:sp.alien,syl:sp.syl,t0:performance.now(),dur:sp.dur,mood:kind==='poor'||kind==='max'?'rage':kind==='buy'?'smug':'grump',idle:performance.now()+sp.dur+7000});
   glipVoice(sp.syl,SHOP.mood==='rage');if(SHOP.elE)SHOP.elE.textContent=line}
