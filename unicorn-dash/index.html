@@ -13,7 +13,12 @@
     background:radial-gradient(circle at 35% 30%,#bff3ff,#3aa8ff 60%,#1b5fd6);color:#fff;font:700 15px 'Fredoka',sans-serif;
     box-shadow:0 6px 18px rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;flex-direction:column;line-height:1.1}
   #shieldBtn span{font-size:28px}
-  #shieldBtn.empty{filter:grayscale(1) brightness(.7)}
+  #shieldBtn.empty,#guardBtn.empty{filter:grayscale(1) brightness(.7)}
+  #guardBtn{position:fixed;right:116px;bottom:18px;width:86px;height:86px;border-radius:50%;border:4px solid #fff;
+    background:radial-gradient(circle at 35% 30%,#ffe0f4,#ff6ec7 55%,#b44cff);color:#fff;font:700 15px 'Fredoka',sans-serif;
+    box-shadow:0 6px 18px rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;flex-direction:column;line-height:1.1}
+  #guardBtn span{font-size:28px}
+  @media (pointer:coarse){#guardBtn{display:flex}}
   #musicBtn{position:fixed;left:14px;bottom:14px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;
     background:rgba(255,110,199,.85);font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,.35);cursor:pointer;padding:0}
   @media (pointer:coarse){#shieldBtn{display:flex}}
@@ -22,7 +27,8 @@
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
 <button id="musicBtn" aria-label="Music on/off">🎵</button>
-<button id="shieldBtn"><span>🛡️</span>SHIELD</button>
+<button id="guardBtn"><span>🌈</span>GUARD</button>
+<button id="shieldBtn"><span>🫧</span>BUBBLE</button>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const W=800,H=450,GROUND=375;
@@ -137,7 +143,7 @@ let U,dragons,fires,coins,parts,stars,clouds,speed,score,dist,dangerIdx,dangerTi
 
 function reset(){
   U={x:150,y:GROUND,vy:0,onGround:true,jumps:0,rainbow:MAX_RAINBOW,horn:0,shields:1,
-     shieldT:0,hurtT:0,powerT:0,leg:0};
+     shieldT:0,guardT:0,guardHits:0,hurtT:0,powerT:0,leg:0};
   dragons=[];fires=[];coins=[];parts=[];chunks=[];craters=[];
   speed=5;score=0;dist=0;dangerIdx=Math.floor(Math.random()*6);dangerTimer=9;
   spawnD=2.2;spawnC=.8;flash=0;msg='';msgT=0;shake=0;
@@ -158,6 +164,18 @@ function jump(){
     for(let i=0;i<8;i++)parts.push(P(U.x-10,U.y,RAINBOW[i%7],-2-Math.random()*2,Math.random()*2-1,.5));
   }
 }
+// Use a shield to lay a protective layer over the rainbow bridge
+const GUARD_TIME=15,GUARD_HITS=3;
+function placeGuard(){
+  if(state!=='play')return;
+  if(U.shields>0&&U.guardT<=0){
+    U.shields--;U.guardT=GUARD_TIME;U.guardHits=GUARD_HITS;
+    say('🌈 Rainbow Guard placed! Your colours are safe!');
+    [600,800,1000].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.1),i*70));
+    for(let x=0;x<W;x+=25)parts.push(P(x,GROUND,'#bff3ff',-2-Math.random()*2,0,.8,4));
+  }else if(U.guardT>0){say('Rainbow Guard is already on!')}
+  else beep(150,.12,'square',.06);
+}
 function shield(){
   if(state!=='play')return;
   if(U.shields>0&&U.shieldT<=0){U.shields--;U.shieldT=3;beep(300,.4,'sine',.15,500);say('Shield up!')}
@@ -166,11 +184,14 @@ function shield(){
 function start(){initAudio();if(state==='over'||state==='title'){reset();state='play'}}
 addEventListener('keydown',e=>{
   if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump()}
+  if(['KeyG','KeyD'].includes(e.code)){e.preventDefault();placeGuard()}
   if(['KeyS','ShiftLeft','ShiftRight','ArrowDown','KeyX'].includes(e.code)){e.preventDefault();shield()}
   if(e.code==='KeyM'){initAudio();setMusic(!musicOn)}
   if(e.code==='KeyP'&&state==='play')state='paused';else if(e.code==='KeyP'&&state==='paused')state='play';
 });
 cv.addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+const gb=document.getElementById('guardBtn');
+gb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();initAudio();placeGuard()});
 const sb=document.getElementById('shieldBtn');
 sb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();initAudio();shield()});
 const mb=document.getElementById('musicBtn');
@@ -184,6 +205,13 @@ const danger=()=>COLORS[dangerIdx];
 function hit(src){
   if(U.powerT>0||U.hurtT>0)return;
   if(U.shieldT>0){beep(900,.1,'square',.08);return}
+  if(U.guardT>0){ // the Rainbow Guard takes the hit instead of your colours
+    U.guardHits--;U.hurtT=1;shake=5;
+    burst(U.x,GROUND,['#bff3ff','#fff','#ff6ec7'],18,5);beep(700,.15,'triangle',.1,-200);
+    if(U.guardHits<=0){U.guardT=0;say('Rainbow Guard used up!')}
+    else say('Guard saved your colours! ('+U.guardHits+' left)');
+    return;
+  }
   U.rainbow--;U.hurtT=1.4;shake=10;flash=.25;
   breakRainbow(U.rainbow,0,W,45); // the whole bottom stripe crumbles away
   beep(120,.35,'sawtooth',.15,-60);
@@ -239,7 +267,7 @@ function update(dt){
   U.vy+=.75;U.y+=U.vy;
   if(U.y>=GROUND){U.y=GROUND;U.vy=0;if(!U.onGround){burst(U.x,U.y,['#fff'],5,2)}U.onGround=true;U.jumps=0}
   U.leg+=dt*speed*2.2;
-  U.shieldT=Math.max(0,U.shieldT-dt);U.hurtT=Math.max(0,U.hurtT-dt);U.powerT=Math.max(0,U.powerT-dt);
+  U.shieldT=Math.max(0,U.shieldT-dt);if(U.guardT>0){U.guardT-=dt;if(U.guardT<=0){U.guardT=0;say('Rainbow Guard faded away')}}U.hurtT=Math.max(0,U.hurtT-dt);U.powerT=Math.max(0,U.powerT-dt);
   if(U.powerT>0&&Math.random()<.8)parts.push(P(U.x-60,U.y-40+Math.random()*30,RAINBOW[Math.floor(t*20)%7],Math.random()-.5,-speed*.6,.6,4));
   // spawns
   spawnD-=dt;if(spawnD<=0){spawnDragon();spawnD=Math.max(1.4,3.2-dist/3000)+Math.random()*1.4}
@@ -275,6 +303,9 @@ function update(dt){
   for(const f of fires){
     if(f.g){f.vy+=f.g*dt*60;f.x-=speed*.15*dt*60}
     f.x+=f.vx*dt*60;f.y+=f.vy*dt*60;f.t+=dt;
+    if(f.bomb&&f.y>=GROUND-4&&U.guardT>0){ // bounces off the guard
+      f.gone=true;burst(f.x,GROUND,['#bff3ff','#fff'],12,4);beep(1000,.08,'square',.05);continue;
+    }
     if(f.bomb&&f.y>=GROUND-4){
       f.gone=true;shake=Math.max(shake,5);
       burst(f.x,GROUND,['#ff9a1f','#ffe23b','#ff3b3b'],14,5);
@@ -368,6 +399,15 @@ function drawRainbowRoad(){
     const zo=(wx*1)%24;
     for(let x=-24;x<W+24;x+=12){ctx.lineTo(x-zo,y+((x/12)%2?2:BAND-2))}
     ctx.stroke();
+  }
+  // Rainbow Guard: a shimmering shield laid over the bridge
+  if(U.guardT>0&&state!=='title'){
+    const blink=U.guardT<3&&Math.floor(t*8)%2;
+    if(!blink){
+      ctx.fillStyle=`rgba(190,243,255,${.35+.15*Math.sin(t*6)})`;ctx.fillRect(0,GROUND-6,W,U.rainbow*BAND+6);
+      ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,GROUND-6);ctx.lineTo(W,GROUND-6);ctx.stroke();
+      for(let x=((-wx)%90+90)%90;x<W;x+=90)drawMiniShield(x,GROUND+U.rainbow*BAND/2-2,8);
+    }
   }
   // shine on top
   ctx.fillStyle='rgba(255,255,255,.45)';ctx.fillRect(0,GROUND,W,3);
@@ -553,7 +593,7 @@ function drawHUD(){
   if(fw>0){const g=ctx.createLinearGradient(218,0,394,0);RAINBOW.forEach((c,i)=>g.addColorStop(i/6,c));ctx.fillStyle=g;roundRect(218,34,fw,16,8);ctx.fill()}
   // shields
   ctx.fillStyle='rgba(0,0,0,.3)';roundRect(414,10,110,50,12);ctx.fill();
-  ctx.fillStyle='#fff';ctx.fillText('SHIELDS',424,27);
+  ctx.fillStyle='#fff';ctx.fillText(U.guardT>0?'GUARD ×'+U.guardHits:'SHIELDS',424,27);
   for(let i=0;i<MAX_SHIELDS;i++){ctx.globalAlpha=i<U.shields?1:.25;drawMiniShield(436+i*26,43,9)}
   ctx.globalAlpha=1;
   // danger colour
@@ -607,15 +647,15 @@ function draw(){
       'The grumpy dragons don\'t like unicorns! Leap over them and dodge their fire.',
       'Collect star coins to fill your horn — 10 coins = 🌈 RAINBOW HORN POWER!',
       'But never touch coins the SAME colour as the dragons. They keep changing!',
-      'Grab 🛡️ shield coins to store shields in your horn. Getting hit costs rainbow.',
-      touch?'Tap anywhere to JUMP (tap again to double-jump) · SHIELD button to block':'SPACE / ↑ to jump (twice = double jump) · S or SHIFT to shield · P pause · M music'
+      '🛡️ Shield coins: use as a BUBBLE round you, or lay a GUARD on the rainbow.',
+      touch?'Tap anywhere to JUMP (tap again to double-jump) · BUBBLE protects you · GUARD protects the rainbow':'SPACE / ↑ to jump (twice = double jump) · S = bubble · G = rainbow guard · P pause · M music'
     ],touch?'Tap to play':'Press SPACE');
   }else if(state==='over'){
     panel('Rainbow Gone!',['The dragons got all your rainbow this time.','','Score: '+score+'     Best: '+best,''],touch?'Tap to try again':'SPACE to try again');
   }else if(state==='paused'){
     panel('Paused',['Press P to keep running'],'Paused');
   }
-  sb.classList.toggle('empty',U.shields<=0);
+  sb.classList.toggle('empty',U.shields<=0);gb.classList.toggle('empty',U.shields<=0||U.guardT>0);
 }
 
 let last=performance.now();
