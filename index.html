@@ -3,325 +3,153 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Vanta Drift</title>
-<meta name="description" content="Vanta Drift is a free side-scrolling space shooter you play in your browser. Four hostile sectors, a living arsenal, a cockpit view and a boss at the end of every run.">
-<meta name="theme-color" content="#07060f">
+<title>Night Shift Arcade</title>
+<meta name="description" content="A little arcade of free browser games. Space shooter, anti-gravity racer, forest horror, helicopter rescue and a unicorn on a rainbow. Plays on phone, tablet, PC and TV.">
+<meta name="theme-color" content="#08070d">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Vanta Drift">
-<meta property="og:description" content="Charge the beam. Launch the pod. Break the core. A free space shooter for phone, tablet and PC.">
-<meta property="og:image" content="img/og.jpg">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:title" content="Night Shift Arcade">
+<meta property="og:description" content="Five free browser games. Tap one and play.">
 <link rel="icon" type="image/png" href="img/favicon.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@600;700&family=Silkscreen&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Silkscreen&display=swap">
 <style>
-/* Layout: arcade cabinet poster. Full-bleed screenshot hero, then alternating bands of evidence (sectors, arsenal, boss, controls) */
 :root{
-  --void:#07060f; --panel:#120e24; --panel-2:#181333; --line:#2a2350; --ink:#ece8ff; --dim:#a29cc9;
-  --amber:#ffb84a; --hull:#7fe3ff; --threat:#ff4f7b; --edge:#7a5cff;
-  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
-  --f-body:"Barlow","Segoe UI",system-ui,-apple-system,sans-serif;
-  --f-pixel:"Silkscreen",ui-monospace,"Courier New",monospace;
-  --gut:max(16px, env(safe-area-inset-left, 0px));
-  --gutr:max(16px, env(safe-area-inset-right, 0px));
-  color-scheme:dark;
+  --bg:#08070d; --card:#12111b; --line:#25233a; --ink:#f1eefc; --dim:#9d99b8; --hi:#ffcf5a;
+  --f-disp:"Silkscreen",ui-monospace,monospace; --f-body:"Barlow",system-ui,sans-serif;
 }
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-body{margin:0; background:var(--void); color:var(--ink); font:400 1.05rem/1.6 var(--f-body); -webkit-font-smoothing:antialiased}
-img{max-width:100%; height:auto; display:block}
-a{color:var(--hull)}
-:focus-visible{outline:2px solid var(--hull); outline-offset:3px}
-.wrap{width:min(1180px,100%); margin:0 auto; padding-left:var(--gut); padding-right:var(--gutr)}
-.label{font-family:var(--f-pixel); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--amber)}
-h1,h2,h3{font-family:var(--f-display); font-weight:700; line-height:1.05; margin:0; text-wrap:balance; letter-spacing:.02em}
-h2{font-size:clamp(1.9rem,4.4vw,3rem); text-transform:uppercase}
-h3{font-size:1.35rem; text-transform:uppercase; letter-spacing:.06em}
-p{margin:0; text-wrap:pretty}
-.lede{color:var(--dim); max-width:62ch}
-
-/* header */
-.top{position:sticky; top:env(safe-area-inset-top,0px); z-index:10; background:rgba(7,6,15,.78); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border-bottom:1px solid #1a1534}
-body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:11; background:var(--void)}
-.top .wrap{display:flex; align-items:center; gap:20px; padding-block:12px}
-.mark{margin-right:auto; font-family:var(--f-display); font-weight:700; letter-spacing:.2em; text-decoration:none; color:var(--ink); white-space:nowrap}
-.mark span{color:var(--amber)}
-.nav{display:flex; gap:22px}
-.nav a{font-family:var(--f-pixel); font-size:.7rem; letter-spacing:.1em; color:var(--dim); text-decoration:none}
-.nav a:hover{color:var(--ink)}
-@media (max-width:720px){.nav{display:none}}
-.btn{display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:48px; padding:0 26px; border-radius:10px; text-decoration:none;
-  font-family:var(--f-pixel); font-size:.85rem; letter-spacing:.12em; transition:transform .15s ease, box-shadow .2s ease, background .2s ease}
-.btn.play{background:linear-gradient(180deg,#ffcb72,#ff9f2e); color:#1a0e00; box-shadow:0 0 0 1px #ffd99a inset, 0 10px 34px -10px #ff9f2eaa}
-.btn.play:hover{transform:translateY(-1px); box-shadow:0 0 0 1px #ffe4b5 inset, 0 14px 40px -10px #ffb84acc}
-.btn.ghost{border:1px solid var(--line); color:var(--ink); background:rgba(18,14,36,.6)}
-.btn.ghost:hover{border-color:var(--hull); color:var(--hull)}
-.top .btn{min-height:40px; padding:0 18px; font-size:.72rem}
-
-/* hero */
-.hero{position:relative; isolation:isolate; overflow:hidden; border-bottom:1px solid #1a1534}
-.hero-art{position:absolute; inset:0; z-index:-2}
-.hero-art img{width:100%; height:100%; object-fit:cover; object-position:62% 50%}
-.hero::before{content:""; position:absolute; inset:0; z-index:-1;
-  background:linear-gradient(90deg, rgba(7,6,15,.94) 0%, rgba(7,6,15,.72) 38%, rgba(7,6,15,.12) 70%, rgba(7,6,15,.35) 100%),
-             linear-gradient(0deg, var(--void) 0%, rgba(7,6,15,0) 30%)}
-.hero::after{content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); mix-blend-mode:multiply}
-.hero .wrap{padding-block:clamp(72px,12vw,150px) clamp(64px,10vw,120px); display:flex; flex-direction:column; gap:22px; align-items:flex-start}
-.hero h1{font-size:clamp(3.4rem,11vw,8.4rem); letter-spacing:.06em; line-height:.92; text-shadow:0 0 40px rgba(122,92,255,.45)}
-.hero h1 span{display:block; color:var(--amber); text-shadow:0 0 36px rgba(255,159,46,.55)}
-.tag{font-family:var(--f-display); font-weight:600; font-size:clamp(1.15rem,2.4vw,1.5rem); letter-spacing:.04em}
-.hero .lede{color:#d4cff0; max-width:46ch}
-.ctas{display:flex; gap:12px; flex-wrap:wrap; margin-top:6px}
-.facts{display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:10px; font-family:var(--f-pixel); font-size:.68rem; letter-spacing:.1em; color:var(--dim)}
-.facts b{color:var(--ink); font-weight:400}
-@media (prefers-reduced-motion:no-preference){
-  .hero-art img{animation:drift 26s ease-in-out infinite alternate}
-  @keyframes drift{from{transform:scale(1.04) translateX(0)}to{transform:scale(1.1) translateX(-2%)}}
-}
-
-/* bands */
-section{padding-block:clamp(64px,9vw,112px)}
-.head{display:flex; flex-direction:column; gap:14px; margin-bottom:clamp(28px,4vw,44px)}
-.band{background:linear-gradient(180deg,#0b0918,#0e0b1f); border-block:1px solid #1a1534}
-
-/* sectors */
-.sectors{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px}
-@media (max-width:1000px){.sectors{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.sectors{grid-template-columns:1fr}}
-.sector{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-width:0}
-.sector figure{margin:0; aspect-ratio:16/10; overflow:hidden; max-width:100%; position:relative}
-.sector figure img{width:100%; height:100%; object-fit:cover; transition:transform .5s ease}
-.sector:hover figure img{transform:scale(1.05)}
-.sector .body{padding:16px 16px 18px; display:flex; flex-direction:column; gap:8px}
-.sector .num{font-family:var(--f-pixel); font-size:.66rem; letter-spacing:.14em}
-.sector p{color:var(--dim); font-size:.97rem}
-.sector .mus{margin-top:auto; padding-top:8px; font-family:var(--f-pixel); font-size:.62rem; letter-spacing:.08em; color:var(--ink); opacity:.8}
-.s1 .num{color:#b49cff} .s2 .num{color:#ff8a4a} .s3 .num{color:#9be6ff} .s4 .num{color:#a6f26a}
-
-/* arsenal */
-.arsenal{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr)); gap:14px}
-.pu{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:start; align-content:start; padding:16px; border-radius:12px; background:var(--panel); border:1px solid var(--line); min-width:0}
-.cap{grid-row:span 3; width:44px; height:30px; border-radius:16px; display:grid; place-items:center; font-family:var(--f-pixel); font-size:.85rem; color:#0b0818;
-  background:var(--c); box-shadow:0 0 18px -2px var(--c), inset 0 -6px 10px rgba(0,0,0,.25), inset 0 4px 8px rgba(255,255,255,.4)}
-.pu h3{font-size:1.05rem; color:var(--c)}
-.pu p{color:var(--dim); font-size:.95rem}
-.pu .ch{font-family:var(--f-pixel); font-size:.6rem; letter-spacing:.08em; color:var(--ink); opacity:.85}
-
-/* views + boss split */
-.split{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:clamp(24px,4vw,56px); align-items:center}
-.split.rev{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
-.split.rev .shot{order:2}
-@media (max-width:860px){.split,.split.rev{grid-template-columns:1fr}.split.rev .shot{order:0}}
-.shot{border-radius:16px; overflow:hidden; border:1px solid var(--line); box-shadow:0 30px 80px -30px rgba(109,75,255,.55); min-width:0}
-.copy{display:flex; flex-direction:column; gap:16px; min-width:0}
-.copy p{color:var(--dim)}
-.ticks{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:10px}
-.ticks li{display:grid; grid-template-columns:14px 1fr; gap:12px; color:var(--ink)}
-.ticks li::before{content:""; width:8px; height:8px; margin-top:.55em; background:var(--amber); box-shadow:0 0 10px var(--amber); transform:rotate(45deg)}
-.ticks li span{color:var(--dim)}
-
-/* controls */
-.controls{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px}
-@media (max-width:860px){.controls{grid-template-columns:1fr}}
-.ctl{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; min-width:0}
-.ctl h3{font-size:1.05rem; margin-bottom:12px; color:var(--hull)}
-.ctl dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:9px 14px; font-size:.95rem}
-.ctl dt{font-family:var(--f-pixel); font-size:.66rem; letter-spacing:.06em; color:var(--ink); padding-top:.3em; white-space:nowrap}
-.ctl dd{margin:0; color:var(--dim)}
-kbd{font-family:var(--f-pixel); font-size:.62rem; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:1px 5px; background:#0b0918; color:var(--ink)}
-
-/* install */
-.install{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
-@media (max-width:760px){.install{grid-template-columns:1fr}}
-.how{background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:20px; min-width:0}
-.how h3{font-size:1rem; margin-bottom:12px}
-.how ol{margin:0; padding-left:1.2em; color:var(--dim); display:flex; flex-direction:column; gap:6px}
-.how b{color:var(--ink); font-weight:600}
-
-/* finale */
-.finale{text-align:center; position:relative; overflow:hidden; isolation:isolate}
-.finale::before{content:""; position:absolute; inset:-20% -10%; z-index:-1; background:radial-gradient(ellipse at 50% 60%, rgba(255,159,46,.18), rgba(122,92,255,.12) 40%, transparent 70%)}
-.finale .wrap{display:flex; flex-direction:column; align-items:center; gap:18px}
-.finale h2{font-size:clamp(2.2rem,6vw,4.2rem)}
-footer{border-top:1px solid #1a1534; padding-block:28px calc(28px + env(safe-area-inset-bottom,0px)); color:var(--dim); font-size:.9rem}
-footer .wrap{display:flex; flex-wrap:wrap; gap:8px 24px; justify-content:space-between}
-footer .label{color:var(--dim)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--ink);font-family:var(--f-body);-webkit-text-size-adjust:100%}
+body{min-height:100vh;padding:max(28px,env(safe-area-inset-top)) 18px max(40px,env(safe-area-inset-bottom));
+  background:radial-gradient(1200px 500px at 50% -120px,#1d1838 0%,transparent 70%),var(--bg)}
+.wrap{max-width:1080px;margin:0 auto}
+header{text-align:center;padding:18px 0 34px}
+.sign{font-family:var(--f-disp);font-size:clamp(30px,8vw,58px);letter-spacing:.04em;line-height:1;
+  color:#fff;text-shadow:0 0 6px #ff5fb0,0 0 22px #ff5fb0aa,0 0 44px #7a5cff88}
+.sign span{color:var(--hi);text-shadow:0 0 6px var(--hi),0 0 24px #ffcf5a99}
+.tag{margin-top:14px;color:var(--dim);font-size:16px}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.game{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:18px;
+  overflow:hidden;text-decoration:none;color:inherit;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.game:hover,.game:focus-visible{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 10px 40px -12px var(--accent);outline:none}
+.art{position:relative;aspect-ratio:16/9;overflow:hidden;background:#000}
+.art svg,.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.genre{position:absolute;left:12px;top:12px;font:600 11px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;
+  background:rgba(0,0,0,.6);color:#fff;padding:7px 9px;border-radius:999px;backdrop-filter:blur(4px)}
+.body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+h2{font-family:var(--f-disp);font-size:20px;font-weight:400;letter-spacing:.02em;color:var(--accent)}
+.body p{color:var(--dim);font-size:15px;line-height:1.45;flex:1}
+.play{align-self:flex-start;margin-top:6px;font:600 14px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;
+  background:var(--accent);color:#0b0a10;padding:11px 18px;border-radius:999px}
+footer{margin-top:40px;text-align:center;color:var(--dim);font-size:14px;line-height:1.6}
+footer b{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1 class="sign">NIGHT SHIFT <span>ARCADE</span></h1>
+    <p class="tag">Five free games. Tap one and play. No downloads, no sign-ups.</p>
+  </header>
 
-<header class="top">
-  <div class="wrap">
-    <a class="mark" href="#">VANTA <span>DRIFT</span></a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#sectors">SECTORS</a><a href="#arsenal">ARSENAL</a><a href="#views">VIEWS</a><a href="#controls">CONTROLS</a>
-    </nav>
-    <a class="btn play" href="vanta-drift.html">PLAY</a>
-  </div>
-</header>
+  <main class="grid">
 
-<main>
-  <section class="hero" aria-labelledby="title" style="padding:0">
-    <div class="hero-art"><img src="img/boss.jpg" alt="The player's ship firing magma rounds at a giant armoured boss in the red Ember Wastes sector" width="1600" height="900" fetchpriority="high"></div>
-    <div class="wrap">
-      <div class="label">A side-scrolling space shooter</div>
-      <h1 id="title">Vanta<span>Drift</span></h1>
-      <p class="tag">Charge the beam. Launch the pod. Break the core.</p>
-      <p class="lede">Four hostile sectors, a growing arsenal and a monster at the end of every run. It plays in your browser on phone, tablet or PC, side-on or straight from the cockpit.</p>
-      <div class="ctas">
-        <a class="btn play" href="vanta-drift.html">PLAY NOW &#9654;</a>
-        <a class="btn ghost" href="#controls">HOW TO PLAY</a>
+    <a class="game" href="vanta/" style="--accent:#7fe3ff">
+      <div class="art">
+        <img src="img/cockpit.jpg" alt="Vanta Drift cockpit view" loading="lazy">
+        <span class="genre">Space shooter</span>
       </div>
-      <div class="facts"><span><b>4</b> SECTORS</span><span><b>7</b> POWER-UPS</span><span><b>2</b> VIEWS</span><span><b>PS5</b> CONTROLLER READY</span><span><b>FREE</b> TO PLAY</span></div>
-    </div>
-  </section>
+      <div class="body">
+        <h2>Vanta Drift</h2>
+        <p>Side-scrolling shooter. Charge the beam, launch the pod and break the core across four hostile sectors.</p>
+        <span class="play">Play</span>
+      </div>
+    </a>
 
-  <section id="sectors">
-    <div class="wrap">
-      <div class="head">
-        <div class="label">The route</div>
-        <h2>Four sectors. Four bosses.</h2>
-        <p class="lede">Each sector has its own skies, its own enemies and its own acid house soundtrack. Clear the boss, spend your coins at the alien shop, and fly on to something nastier.</p>
+    <a class="game" href="riftline/" style="--accent:#c4ff4d">
+      <div class="art">
+        <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs><linearGradient id="rs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0b3a"/><stop offset="1" stop-color="#3b0f5c"/></linearGradient></defs>
+          <rect width="320" height="180" fill="url(#rs)"/>
+          <path d="M160 70 L0 180 L40 180 L160 70 L280 180 L320 180 Z" fill="#0d0620"/>
+          <g stroke="#c4ff4d" stroke-width="2" fill="none" opacity=".9"><path d="M160 70 L20 180"/><path d="M160 70 L300 180"/></g>
+          <g stroke="#ff4fd8" stroke-width="1.5" opacity=".7"><path d="M150 100 L170 100"/><path d="M138 125 L182 125"/><path d="M118 160 L202 160"/></g>
+          <path d="M138 150 L160 132 L182 150 L170 156 L150 156 Z" fill="#c4ff4d"/>
+          <path d="M146 156 L174 156 L168 166 L152 166 Z" fill="#ff4fd8" opacity=".8"/>
+        </svg>
+        <span class="genre">Anti-gravity racer</span>
       </div>
-      <div class="sectors">
-        <article class="sector s1">
-          <figure><img src="img/violet.jpg" alt="A firefight over a purple nebula with alien city skylines and a moon buggy on the cave floor" loading="lazy" width="900" height="506"></figure>
-          <div class="body"><div class="num">SECTOR 01</div><h3>Violet Reach</h3><p>A purple nebula over sleeping alien cities. Fighters, gun turrets and the first gunship.</p><div class="mus">CLASSIC ACID HOUSE · 125 BPM</div></div>
-        </article>
-        <article class="sector s2">
-          <figure><img src="img/boss.jpg" alt="Volcanic red skies and the armoured boss of the Ember Wastes" loading="lazy" width="1600" height="900"></figure>
-          <div class="body"><div class="num">SECTOR 02</div><h3>Ember Wastes</h3><p>Red skies and lava light. Mines that burst when you get close, and bombers raining fire from the roof.</p><div class="mus">DARK ACID · 128 BPM</div></div>
-        </article>
-        <article class="sector s3">
-          <figure><img src="img/cockpit.jpg" alt="Cockpit view racing down an icy blue canyon with enemies ahead" loading="lazy" width="900" height="506"></figure>
-          <div class="body"><div class="num">SECTOR 03</div><h3>Glacier Drift</h3><p>Icy blues. Crystal shards that split when they break, and wraiths that cloak and reappear.</p><div class="mus">DEEP ACID · 122 BPM</div></div>
-        </article>
-        <article class="sector s4">
-          <figure><img src="img/hive.jpg" alt="A laser volley tearing through fighters in the toxic green Hive Core" loading="lazy" width="900" height="506"></figure>
-          <div class="body"><div class="num">SECTOR 04</div><h3>Hive Core</h3><p>Toxic green and alive. Swarms that hunt you down, and the brood pods that breed them.</p><div class="mus">HARD ACID · 132 BPM</div></div>
-        </article>
+      <div class="body">
+        <h2>Riftline</h2>
+        <p>Futuristic racing with alien pilots, four courses, weapons and boosts. Cockpit or chase camera.</p>
+        <span class="play">Play</span>
       </div>
-    </div>
-  </section>
+    </a>
 
-  <section id="arsenal" class="band">
-    <div class="wrap">
-      <div class="head">
-        <div class="label">The arsenal</div>
-        <h2>Shoot the carriers. Take what falls.</h2>
-        <p class="lede">Orange carriers drop capsules. Grab the same weapon again to power it up to level III. Every gun has its own charged shot: hold, build the roar, release.</p>
+    <a class="game" href="blackspruce/" style="--accent:#ffcf5a">
+      <div class="art">
+        <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs><radialGradient id="tb" cx=".5" cy=".75" r=".55"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".55"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient></defs>
+          <rect width="320" height="180" fill="#05070a"/>
+          <g fill="#0c1410"><path d="M20 180 L45 40 L70 180Z"/><path d="M80 180 L100 70 L120 180Z"/><path d="M200 180 L225 30 L250 180Z"/><path d="M260 180 L285 60 L310 180Z"/><path d="M140 180 L158 90 L176 180Z"/></g>
+          <ellipse cx="160" cy="135" rx="150" ry="70" fill="url(#tb)"/>
+          <rect x="146" y="112" width="28" height="20" fill="#1a1a17"/><path d="M142 112 L160 98 L178 112Z" fill="#141412"/>
+          <rect x="157" y="120" width="6" height="12" fill="#3a2f12"/>
+          <g stroke="#6d8aa0" stroke-width=".8" opacity=".35"><path d="M30 10 l-4 14"/><path d="M90 30 l-4 14"/><path d="M190 15 l-4 14"/><path d="M250 40 l-4 14"/><path d="M130 50 l-4 14"/><path d="M300 20 l-4 14"/></g>
+        </svg>
+        <span class="genre">Horror</span>
       </div>
-      <div class="arsenal">
-        <div class="pu" style="--c:#7fe3ff"><span class="cap">L</span><h3>Laser</h3><p>Rapid thin beams that pierce straight through a line of fighters.</p><span class="ch">CHARGED: HYPER RAY</span></div>
-        <div class="pu" style="--c:#ff6ad5"><span class="cap">P</span><h3>Plasma</h3><p>Wobbling orbs that spray out in a fan up to seven wide.</p><span class="ch">CHARGED: NOVA BURST</span></div>
-        <div class="pu" style="--c:#ff7a2a"><span class="cap">M</span><h3>Magma</h3><p>Slow, heavy fireballs that burst and burn everything close by.</p><span class="ch">CHARGED: METEOR</span></div>
-        <div class="pu" style="--c:#bfe9ff"><span class="cap">S</span><h3>Shield</h3><p>A bubble around your ship that soaks up three hits.</p><span class="ch">ABSORBS 3 HITS</span></div>
-        <div class="pu" style="--c:#ffb84a"><span class="cap">D</span><h3>Drone</h3><p>An orbiting pod that blocks bullets, fires with you and can be launched ahead.</p><span class="ch">UPGRADES TO III</span></div>
-        <div class="pu" style="--c:#3fd8c4"><span class="cap">B</span><h3>Speed</h3><p>More thrust for threading the cave and dodging the boss's fans.</p><span class="ch">UP TO 3 LEVELS</span></div>
-        <div class="pu" style="--c:#e6f07a"><span class="cap">R</span><h3>Moon Buggy</h3><p>A little six-wheeled rover drives in for 30 seconds and shoots for you.</p><span class="ch">AUTO-TARGETING</span></div>
+      <div class="body">
+        <h2>Blackspruce</h2>
+        <p>Your car is off the road, your phone is dead and the torch is fading. Search the cabins and get out of the forest.</p>
+        <span class="play">Play</span>
       </div>
-    </div>
-  </section>
+    </a>
 
-  <section id="views">
-    <div class="wrap split">
-      <div class="shot"><img src="img/cockpit.jpg" alt="First-person cockpit view with the crosshair, dashboard and the moon buggy racing ahead down the canyon" loading="lazy" width="900" height="506"></div>
-      <div class="copy">
-        <div class="label">Two ways to fly</div>
-        <h2>Side-on or straight from the cockpit.</h2>
-        <p>Play the classic way, threading a cave with enemies streaming in from the right. Or switch to the cockpit and fly down the canyon as they come straight at you.</p>
-        <ul class="ticks">
-          <li><div>Real 3D ships <span>with live reflections, bloom and lighting from every shot and explosion</span></div></li>
-          <li><div>A classic 2D mode <span>for older devices, one tap away</span></div></li>
-          <li><div>Every weapon and power-up <span>works in both views</span></div></li>
-        </ul>
+    <a class="game" href="ridgeline/" style="--accent:#ff8a3d">
+      <div class="art">
+        <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fb8d8"/><stop offset="1" stop-color="#dfe9ef"/></linearGradient></defs>
+          <rect width="320" height="180" fill="url(#sk)"/>
+          <path d="M0 180 L70 90 L110 120 L170 60 L230 115 L270 85 L320 130 L320 180Z" fill="#5d6f7c"/>
+          <path d="M150 82 L170 60 L190 80 L178 76 L170 82 L160 77Z" fill="#f4f7f9"/>
+          <path d="M0 180 L0 160 Q160 150 320 165 L320 180Z" fill="#2b4b63"/>
+          <circle cx="205" cy="104" r="4" fill="#ff8a3d" opacity=".8"/><path d="M205 100 q-6 -12 2 -22 q8 -10 -2 -18" stroke="#ff8a3d" stroke-width="4" fill="none" opacity=".45"/>
+          <g transform="translate(100 42)" fill="#1b2a34"><ellipse cx="22" cy="12" rx="18" ry="9"/><rect x="36" y="9" width="30" height="4"/><rect x="62" y="4" width="3" height="12"/><rect x="-6" y="0" width="56" height="2"/><rect x="20" y="2" width="3" height="3"/><rect x="10" y="22" width="26" height="2"/></g>
+        </svg>
+        <span class="genre">Helicopter rescue</span>
       </div>
-    </div>
-  </section>
+      <div class="body">
+        <h2>Ridgeline Rescue</h2>
+        <p>Fly up to the ridge, land by the orange smoke, then winch your passenger onto the ship. Every mission gets windier.</p>
+        <span class="play">Play</span>
+      </div>
+    </a>
 
-  <section class="band">
-    <div class="wrap split rev">
-      <div class="shot"><img src="img/celebrate.jpg" alt="WELL DONE and SECTOR 1 CLEAR in glowing letters with fireworks bursting behind" loading="lazy" width="1200" height="675"></div>
-      <div class="copy">
-        <div class="label">Break the core</div>
-        <h2>Earn the fireworks.</h2>
-        <p>Every sector ends with a giant biomechanical boss. It tracks you with its eyes, opens its jaws to fire and calls in fighters. Only the glowing core takes damage.</p>
-        <ul class="ticks">
-          <li><div>Well done <span>with fireworks and a sector bonus when you win</span></div></li>
-          <li><div>Glip's Bazaar <span>where the coins you collect buy ships, shields and upgrades</span></div></li>
-          <li><div>A scoreboard <span>for your best runs, with three-letter pilot tags</span></div></li>
-          <li><div>Five lives' worth of chances <span>to get one more sector than last time</span></div></li>
-        </ul>
+    <a class="game" href="unicorn-dash/" style="--accent:#ff8ad8">
+      <div class="art">
+        <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="320" height="180" fill="#7ec8ff"/>
+          <g fill="none" stroke-width="10"><path d="M-10 200 A170 150 0 0 1 330 200" stroke="#ff5a5a"/><path d="M0 200 A160 140 0 0 1 320 200" stroke="#ffa53d"/><path d="M10 200 A150 130 0 0 1 310 200" stroke="#ffe14d"/><path d="M20 200 A140 120 0 0 1 300 200" stroke="#5ee07a"/><path d="M30 200 A130 110 0 0 1 290 200" stroke="#4da3ff"/><path d="M40 200 A120 100 0 0 1 280 200" stroke="#a46bff"/></g>
+          <g fill="#fff"><ellipse cx="60" cy="40" rx="26" ry="10"/><ellipse cx="78" cy="34" rx="16" ry="10"/><ellipse cx="250" cy="30" rx="22" ry="9"/></g>
+          <g fill="#ffd34d"><circle cx="210" cy="72" r="6"/><circle cx="230" cy="62" r="6"/><circle cx="250" cy="56" r="6"/></g>
+          <g transform="translate(120 44)"><ellipse cx="30" cy="22" rx="24" ry="13" fill="#fff"/><circle cx="54" cy="10" r="10" fill="#fff"/><path d="M58 2 L70 -16 L62 4Z" fill="#ffd34d"/><path d="M42 4 q-8 -8 -2 -16 q4 10 10 12Z" fill="#ff8ad8"/><g stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M14 32 l-4 12"/><path d="M42 32 l4 12"/></g><circle cx="57" cy="9" r="1.8" fill="#222"/></g>
+        </svg>
+        <span class="genre">Family runner</span>
       </div>
-    </div>
-  </section>
+      <div class="body">
+        <h2>Rainbow Unicorn Dash</h2>
+        <p>Leap the dragons, dodge their fire and collect coins into your horn before they blast your rainbow apart.</p>
+        <span class="play">Play</span>
+      </div>
+    </a>
 
-  <section id="controls">
-    <div class="wrap">
-      <div class="head">
-        <div class="label">How to play</div>
-        <h2>Pick it up in seconds.</h2>
-        <p class="lede">Your ship fires on its own while you steer. Hold charge for a bigger shot, and let the power-ups do the rest.</p>
-      </div>
-      <div class="controls">
-        <div class="ctl"><h3>Touch</h3><dl>
-          <dt>FLY</dt><dd>Slide a finger anywhere. The ship follows it exactly and fires as you steer.</dd>
-          <dt>CHARGE</dt><dd>Hold the big button, then let go.</dd>
-          <dt>POD</dt><dd>Launch or recall your drone.</dd>
-          <dt>FULL SCREEN</dt><dd>Turn your phone sideways.</dd></dl></div>
-        <div class="ctl"><h3>Keyboard</h3><dl>
-          <dt>FLY</dt><dd><kbd>←↑↓→</kbd> or <kbd>WASD</kbd></dd>
-          <dt>FIRE</dt><dd><kbd>Z</kbd> or <kbd>Space</kbd></dd>
-          <dt>CHARGE</dt><dd>Hold <kbd>X</kbd>, then release</dd>
-          <dt>MORE</dt><dd><kbd>C</kbd> pod · <kbd>V</kbd> view · <kbd>F</kbd> full screen · <kbd>H</kbd> scores</dd></dl></div>
-        <div class="ctl"><h3>PS5 controller</h3><dl>
-          <dt>FLY</dt><dd>Left stick or d-pad</dd>
-          <dt>FIRE</dt><dd>Cross, R1 or R2</dd>
-          <dt>CHARGE</dt><dd>Hold Square or L2</dd>
-          <dt>MORE</dt><dd>Circle for the pod · Options to pause · it rumbles too</dd></dl></div>
-      </div>
-    </div>
-  </section>
+  </main>
 
-  <section class="band" id="install">
-    <div class="wrap">
-      <div class="head">
-        <div class="label">Play it like an app</div>
-        <h2>Full screen, no address bar.</h2>
-        <p class="lede">Add Vanta Drift to your home screen and it opens full screen with its own icon. No download, no app store.</p>
-      </div>
-      <div class="install">
-        <div class="how"><h3>iPhone and iPad (Safari)</h3><ol>
-          <li>Tap <b>PLAY NOW</b> to open the game.</li>
-          <li>Tap the <b>≡</b> or <b>Share</b> button by the address bar.</li>
-          <li>Choose <b>Add to Home Screen</b>, with <b>Open as Web App</b> on.</li>
-          <li>Launch it from the new icon and turn sideways.</li></ol></div>
-        <div class="how"><h3>Android (Chrome)</h3><ol>
-          <li>Tap <b>PLAY NOW</b> to open the game.</li>
-          <li>Tap the <b>⋮</b> menu.</li>
-          <li>Choose <b>Add to Home screen</b> or <b>Install app</b>.</li>
-          <li>Or just tap <b>FULL</b> in the game.</li></ol></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="finale">
-    <div class="wrap">
-      <div class="label">Sector 01 is waiting</div>
-      <h2>Ready, pilot?</h2>
-      <a class="btn play" href="vanta-drift.html">PLAY NOW &#9654;</a>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="wrap">
-    <span>&copy; 2026 Vanta Drift. An original game.</span>
-    <span class="label">Best with sound on</span>
-  </div>
-</footer>
+  <footer>
+    <p><b>Tip:</b> games play on phone, tablet, PC and TV. Vanta Drift and Riftline also work with a controller.<br>Use your browser's back button to return here.</p>
+  </footer>
+</div>
 </body>
 </html>
