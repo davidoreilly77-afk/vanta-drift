@@ -14,11 +14,14 @@
     box-shadow:0 6px 18px rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;flex-direction:column;line-height:1.1}
   #shieldBtn span{font-size:28px}
   #shieldBtn.empty{filter:grayscale(1) brightness(.7)}
+  #musicBtn{position:fixed;left:14px;bottom:14px;width:52px;height:52px;border-radius:50%;border:3px solid #fff;
+    background:rgba(255,110,199,.85);font-size:24px;box-shadow:0 4px 12px rgba(0,0,0,.35);cursor:pointer;padding:0}
   @media (pointer:coarse){#shieldBtn{display:flex}}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
+<button id="musicBtn" aria-label="Music on/off">🎵</button>
 <button id="shieldBtn"><span>🛡️</span>SHIELD</button>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
@@ -54,7 +57,78 @@ function beep(f,d=.1,type='sine',v=.15,slide=0){
   g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
   o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);
 }
-function initAudio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}}
+function initAudio(){
+  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(ac&&ac.state==='suspended')ac.resume();
+  startMusic();
+}
+
+// ---------- music (made live in the browser, cheerful C major) ----------
+const M=n=>440*Math.pow(2,(n-69)/12);
+const _=null;
+const MELODY=[
+  72,76,79,76, 84,79,76,79,   76,72,69,72, 76,_,74,72,
+  69,72,77,72, 81,77,72,77,   79,_,74,71, 74,79,83,_,
+  79,79,81,79, 76,72,74,76,   72,_,69,72, 76,79,76,72,
+  77,76,74,72, 69,72,74,77,   79,83,86,83, 79,74,71,74
+];
+const BASS=[48,45,41,43,48,45,41,43];           // C  Am  F  G
+const CHORD=[[60,64,67],[57,60,64],[53,57,60],[55,59,62]];
+let musicOn=true,musicGain=null,musicTimer=null,step=0,nextTime=0;
+try{musicOn=localStorage.getItem('unicornMusic')!=='off'}catch(e){}
+let noiseBuf=null;
+function note(freq,time,dur,type,vol){
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+.01);
+  g.gain.exponentialRampToValueAtTime(.001,time+dur);
+  o.connect(g);g.connect(musicGain);o.start(time);o.stop(time+dur+.02);
+}
+function hat(time,vol){
+  if(!noiseBuf){noiseBuf=ac.createBuffer(1,ac.sampleRate*.05,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();
+  s.buffer=noiseBuf;f.type='highpass';f.frequency.value=7000;
+  g.gain.setValueAtTime(vol,time);g.gain.exponentialRampToValueAtTime(.001,time+.04);
+  s.connect(f);f.connect(g);g.connect(musicGain);s.start(time);
+}
+function kick(time){
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.frequency.setValueAtTime(150,time);o.frequency.exponentialRampToValueAtTime(45,time+.12);
+  g.gain.setValueAtTime(.35,time);g.gain.exponentialRampToValueAtTime(.001,time+.15);
+  o.connect(g);g.connect(musicGain);o.start(time);o.stop(time+.16);
+}
+function playStep(i,time,stepLen){
+  const power=typeof U!=='undefined'&&U.powerT>0&&state==='play';
+  const bar=Math.floor(i/8)%8, beat=i%8;
+  const m=MELODY[i%64];
+  if(m!==null){
+    note(M(m+(power?12:0)),time,stepLen*1.6,'square',.05);
+    note(M(m+12),time,stepLen*.9,'sine',.025);          // sparkle on top
+  }
+  if(beat%2===0){const b=BASS[bar]+(beat%4===2?12:0);note(M(b),time,stepLen*1.8,'triangle',.18)}
+  // twinkly chord arpeggio
+  const ch=CHORD[bar%4];note(M(ch[beat%3]+12),time,stepLen*.8,'sine',.03);
+  if(beat%4===0)kick(time);
+  if(beat%2===1||power)hat(time,power?.06:.04);
+}
+function scheduler(){
+  if(!ac||!musicGain)return;
+  const power=typeof U!=='undefined'&&U.powerT>0&&state==='play';
+  const bpm=state==='play'?(power?168:140):118;
+  const stepLen=60/bpm/2;
+  while(nextTime<ac.currentTime+.12){playStep(step,nextTime,stepLen);nextTime+=stepLen;step++}
+}
+function startMusic(){
+  if(!ac||musicTimer)return;
+  musicGain=ac.createGain();musicGain.gain.value=musicOn?.55:0;musicGain.connect(ac.destination);
+  nextTime=ac.currentTime+.05;step=0;
+  musicTimer=setInterval(scheduler,25);
+}
+function setMusic(on){
+  musicOn=on;try{localStorage.setItem('unicornMusic',on?'on':'off')}catch(e){}
+  if(musicGain)musicGain.gain.setTargetAtTime(on?.55:0,ac.currentTime,.05);
+  const b=document.getElementById('musicBtn');if(b)b.textContent=on?'🎵':'🔇';
+}
 
 // ---------- state ----------
 let state='title',t=0,best=0;
@@ -93,11 +167,15 @@ function start(){initAudio();if(state==='over'||state==='title'){reset();state='
 addEventListener('keydown',e=>{
   if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump()}
   if(['KeyS','ShiftLeft','ShiftRight','ArrowDown','KeyX'].includes(e.code)){e.preventDefault();shield()}
+  if(e.code==='KeyM'){initAudio();setMusic(!musicOn)}
   if(e.code==='KeyP'&&state==='play')state='paused';else if(e.code==='KeyP'&&state==='paused')state='play';
 });
 cv.addEventListener('pointerdown',e=>{e.preventDefault();jump()});
 const sb=document.getElementById('shieldBtn');
 sb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();initAudio();shield()});
+const mb=document.getElementById('musicBtn');
+mb.textContent=musicOn?'🎵':'🔇';
+mb.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();initAudio();setMusic(!musicOn)});
 
 // ---------- helpers ----------
 function P(x,y,c,vy,vx,life,r=3){return{x,y,c,vx:vx??(Math.random()*2-1),vy,life,max:life,r}}
@@ -469,7 +547,7 @@ function draw(){
       'Collect star coins to fill your horn — 10 coins = 🌈 RAINBOW HORN POWER!',
       'But never touch coins the SAME colour as the dragons. They keep changing!',
       'Grab 🛡️ shield coins to store shields in your horn. Getting hit costs rainbow.',
-      touch?'Tap anywhere to JUMP (tap again to double-jump) · SHIELD button to block':'SPACE / ↑ to jump (twice = double jump) · S or SHIFT to shield · P to pause'
+      touch?'Tap anywhere to JUMP (tap again to double-jump) · SHIELD button to block':'SPACE / ↑ to jump (twice = double jump) · S or SHIFT to shield · P pause · M music'
     ],touch?'Tap to play':'Press SPACE');
   }else if(state==='over'){
     panel('Rainbow Gone!',['The dragons got all your rainbow this time.','','Score: '+score+'     Best: '+best,''],touch?'Tap to try again':'SPACE to try again');
