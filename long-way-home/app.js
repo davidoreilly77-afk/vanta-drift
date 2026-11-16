@@ -383,15 +383,12 @@ async function ensureProfile(){
   PROF[id]=profileOf(PTS,TOTAL);return PROF[id];
 }
 const eAt=(p,m)=>{const i=Math.max(0,Math.min(p.e.length-1,m/PSTEP)),a=Math.floor(i),b=Math.min(p.e.length-1,a+1);return p.e[a]+(p.e[b]-p.e[a])*(i-a);};
-/* rule-of-thumb mapping from road gradient to Peloton resistance and cadence */
-/* rule-of-thumb mapping from road gradient to Peloton resistance and cadence: about 6 points of resistance per 1% of climb */
+/* gradient to Peloton resistance, scaled between the rider's own flat and steepest-climb settings (8% and over counts as steepest) */
 function effort(g){
-  if(g<=-4)return {res:"20–25",cad:"95–105",word:"Fast descent",lo:20};
-  if(g<=-1.5)return {res:"25–30",cad:"90–100",word:"Downhill",lo:25};
-  if(g<1.5)return {res:"30–35",cad:"85–95",word:g<-.5?"Gently down":"Flat",lo:30};
-  const r=Math.min(85,30+6*g),lo=Math.min(80,Math.floor(r/5)*5);
-  const cad=g<3?"80–90":g<5?"70–80":g<7?"65–75":g<9?"60–70":"55–65";
-  const word=g<3?"Gentle climb":g<5?"Climb":g<7?"Steep climb":g<9?"Very steep":"Wall";
+  const st=S.settings,f=+st.resFlat||30,x=Math.max(f+10,+st.resMax||70),per=(x-f)/8;
+  const lo=Math.max(f-10,Math.min(x,f+5*Math.trunc(per*g/5)));
+  const cad=g<=-3?"95–105":g<-1?"90–100":g<1?"85–95":g<3?"80–90":g<5?"70–80":g<7?"65–75":g<9?"60–70":"55–65";
+  const word=g<=-3?"Fast descent":g<=-1?"Downhill":g<-.4?"Gently down":g<1?"Flat":g<2?"Drag":g<3.5?"Gentle climb":g<5?"Climb":g<7?"Steep climb":g<9?"Very steep":"Wall";
   return {res:lo+"–"+(lo+5),cad,word,lo};
 }
 /* climb rating in the style of cycling's climb categories: length in metres times average gradient */
@@ -399,22 +396,30 @@ function climbCat(lenMi,g){
   if(g<2)return "";const s=lenMi*1609.34*g;
   return s>=80000?"HC":s>=64000?"Cat 1":s>=32000?"Cat 2":s>=16000?"Cat 3":s>=8000?"Cat 4":"";
 }
-/* split the road into stretches of downhill, flat and climbing, merging slivers */
-function sections(hAt,m0,span,step){
-  const kind=g=>g<=-1.5?-1:g<1.5?0:1,out=[];
-  for(let m=0;m<span-1e-9;m+=step){const b=Math.min(span,m+step),g=(hAt(m0+b)-hAt(m0+m))/((b-m)*1609.34)*100,k=kind(g),l=out[out.length-1];
-    if(l&&l.k===k)l.b=b;else out.push({k,a:m,b});}
-  const minLen=Math.max(.4,step*2);
-  for(let guard=0;guard<500;guard++){
-    let wi=-1,wl=1e9;out.forEach((s,i)=>{const L=s.b-s.a;if(L<minLen&&L<wl){wl=L;wi=i;}});
-    if(wi<0&&out.length<=10)break;
-    if(wi<0){out.forEach((s,i)=>{const L=s.b-s.a;if(L<wl){wl=L;wi=i;}});}
-    const s=out[wi],L=out[wi-1],R=out[wi+1],t=!L?R:!R?L:(L.b-L.a>=R.b-R.a?L:R);
-    if(!t)break;t.a=Math.min(t.a,s.a);t.b=Math.max(t.b,s.b);out.splice(wi,1);
-    for(let i=out.length-1;i>0;i--)if(out[i].k===out[i-1].k){out[i-1].b=out[i].b;out.splice(i,1);}
+/* split the road wherever the suggested resistance changes, then merge short slivers so the plan stays readable */
+function sections(hAt,m0,span,step,win){
+  const out=[];
+  for(let m=0;m<span-1e-9;m+=step){
+    const b=Math.min(span,m+step),c=(m+b)/2,a0=Math.max(0,c-win/2),a1=Math.min(span,c+win/2);
+    const g=(hAt(m0+a1)-hAt(m0+a0))/((a1-a0)*1609.34)*100,k=effort(g).lo,l=out[out.length-1];
+    if(l&&l.k===k)l.b=b;else out.push({k,a:m,b});
   }
-  return out.map(s=>{let up=0,mx=-99;for(let m=s.a;m<s.b-1e-9;m+=step){const b=Math.min(s.b,m+step),d=hAt(m0+b)-hAt(m0+m);if(d>0)up+=d;const g=d/((b-m)*1609.34)*100;if(g>mx)mx=g;}
-    const g=(hAt(m0+s.b)-hAt(m0+s.a))/((s.b-s.a)*1609.34)*100;return {a:s.a,b:s.b,g,up,mx,cat:climbCat(s.b-s.a,g)};});
+  const stat=s=>{s.g=(hAt(m0+s.b)-hAt(m0+s.a))/((s.b-s.a)*1609.34)*100;s.k=effort(s.g).lo;return s;};
+  const tidy=()=>{for(let i=out.length-1;i>0;i--)if(out[i].k===out[i-1].k){out[i-1].b=out[i].b;out.splice(i,1);stat(out[i-1]);}};
+  const minLen=Math.max(.3,win);
+  for(let guard=0;guard<2000;guard++){
+    let wi=-1,wl=1e9;
+    out.forEach((s,i)=>{const L=s.b-s.a;if(L<minLen&&L<wl){wl=L;wi=i;}});
+    if(wi<0){if(out.length<=12)break;out.forEach((s,i)=>{const L=s.b-s.a;if(L<wl){wl=L;wi=i;}});}
+    const s=out[wi],L=out[wi-1],R=out[wi+1];
+    const t=!L?R:!R?L:(Math.abs(L.k-s.k)<Math.abs(R.k-s.k)||(Math.abs(L.k-s.k)===Math.abs(R.k-s.k)&&L.b-L.a>=R.b-R.a)?L:R);
+    if(!t)break;t.a=Math.min(t.a,s.a);t.b=Math.max(t.b,s.b);out.splice(wi,1);stat(t);tidy();
+  }
+  return out.map(s=>{let up=0,mx=-99;
+    for(let m=s.a;m<s.b-1e-9;m+=step){const b=Math.min(s.b,m+step),d=hAt(m0+b)-hAt(m0+m);if(d>0)up+=d;}
+    for(let m=s.a;m+win<=s.b+1e-9;m+=step){const g=(hAt(m0+m+win)-hAt(m0+m))/(win*1609.34)*100;if(g>mx)mx=g;}
+    if(mx<-90)mx=s.g;
+    return {a:s.a,b:s.b,g:s.g,up,mx,cat:climbCat(s.b-s.a,s.g)};});
 }
 const ft=m=>Math.round(m*3.28084);
 /* detailed heights for the next stretch of road, from the 90 m Copernicus model via Open-Meteo (standalone version only) */
@@ -478,13 +483,13 @@ function aheadHTML(st){
      '<text x="0" y="'+(H+15)+'">Now</text><text x="'+W+'" y="'+(H+15)+'" text-anchor="end">+'+mi(span)+' mi</text></svg>'+
      '<div class="legend">'+[["Down",-3],["Flat",0],["2%",2],["4%",4],["6%",6],["8%+",8]].map(x=>'<span><i style="background:'+slopeCol(x[1])+'"></i>'+x[0]+'</span>').join("")+'</div>';
   /* resistance plan, stretch by stretch */
-  const secs=sections(hAt,m0,Math.min(25,span),f?FSTEP:PSTEP),climbs=secs.filter(x=>x.g>=1.5),gain=secs.reduce((t,x)=>t+x.up,0);
+  const secs=sections(hAt,m0,Math.min(25,span),f?FSTEP:PSTEP,f?.3:1.5),climbs=secs.filter(x=>x.g>=2),gain=secs.reduce((t,x)=>t+x.up,0);
   const hardest=climbs.slice().sort((x,y)=>(y.b-y.a)*y.g-(x.b-x.a)*x.g)[0];
-  h+='<p class="eyebrow" style="margin-top:16px">Ride it on your Peloton</p><p class="sub" style="margin:4px 0 0">Next '+mi(Math.min(25,span))+' miles: '+(climbs.length?climbs.length+(climbs.length===1?" climb":" climbs")+", ":"no real climbs, ")+fmt(gain)+' m of climbing'+(hardest&&hardest.cat?". Hardest is a "+hardest.cat+" at mile "+fmt(hardest.a,1):"")+'.</p><div class="list" style="margin-top:8px">';
+  h+='<p class="eyebrow" style="margin-top:16px">Ride it on your Peloton</p><p class="sub" style="margin:4px 0 0">Next '+mi(Math.min(25,span))+' miles: '+(climbs.length?climbs.length+(climbs.length===1?" climb":" climbs")+", ":"no real climbs, ")+fmt(gain)+' m of climbing'+(hardest?". Biggest climb starts at mile "+fmt(hardest.a,1)+(hardest.cat?" ("+hardest.cat+")":""):"")+'.</p><div class="list" style="margin-top:8px">';
   secs.forEach(x=>{
     const ef=effort(x.g),peak=effort(x.mx),len=x.b-x.a;
-    const what=x.g>=1.5?(x.cat?'<span class="cat">'+x.cat+'</span>':"")+ef.word:ef.word;
-    h+='<div class="item blk"><span class="chip" style="background:linear-gradient(180deg,'+slopeCol(Math.max(x.g,x.mx))+','+slopeCol(x.g)+')"></span><span class="t"><b>Mile '+fmt(x.a,1)+'–'+fmt(x.b,1)+' · '+what+'</b><span>'+fmt(len,1)+' mi at '+(Math.abs(x.g)<.05?"0.0":(x.g>0?"+":"")+x.g.toFixed(1))+'%'+(x.up>=5?', '+fmt(x.up)+' m up':'')+(x.g>=1.5&&peak.lo>ef.lo?'. Steepest '+x.mx.toFixed(1)+'%: push to '+peak.res:'')+'</span></span><span class="r"><b class="res">'+ef.res+'</b><span>resistance</span><span>'+ef.cad+' rpm</span></span></div>';
+    const what=x.g>=2?(x.cat?'<span class="cat">'+x.cat+'</span>':"")+ef.word:ef.word;
+    h+='<div class="item blk"><span class="chip" style="background:linear-gradient(180deg,'+slopeCol(Math.max(x.g,x.mx))+','+slopeCol(x.g)+')"></span><span class="t"><b>Mile '+fmt(x.a,1)+'–'+fmt(x.b,1)+' · '+what+'</b><span>'+fmt(len,1)+' mi at '+(Math.abs(x.g)<.05?"0.0":(x.g>0?"+":"")+x.g.toFixed(1))+'%'+(x.up>=5?', '+fmt(x.up)+' m up':'')+(x.g>=1&&peak.lo>ef.lo?'. Steepest '+x.mx.toFixed(1)+'%: push to '+peak.res:'')+'</span></span><span class="r"><b class="res">'+ef.res+'</b><span>resistance</span><span>'+ef.cad+' rpm</span></span></div>';
   });
   h+='</div><p class="note">'+(f?"Heights from the Copernicus 90 m elevation model via Open-Meteo, so climbs here are close to the real road.":STANDALONE?"Loading detailed heights for this stretch. Until then these figures come from coarse data with points about 11 miles apart.":"These figures come from coarse terrain data with points about 11 miles apart, so short steep climbs are smoothed out. The GitHub version of the app loads detailed 90 m heights for real gradients.")+
     ' Resistance is a guide: Peloton publishes no gradient-to-resistance scale.</p></div>';
@@ -609,7 +614,10 @@ function renderProfile(){
   h+='<div class="sect"><h3>Your plan</h3><div class="seg wide">'+["1y","2y","3y","custom"].map(g=>'<button data-act="goal" data-g="'+g+'" class="'+(s.goal===g?"on":"")+'">'+({"1y":"1 year","2y":"2 years","3y":"3 years",custom:"Custom"}[g])+'</button>').join("")+'</div>';
   if(s.goal==="custom")h+='<label class="f" for="g-date">Arrive in '+esc(RT.to)+' by<input type="date" id="g-date" value="'+esc(s.goalDate||st.goalDate)+'" min="'+addDays(today(),7)+'"></label>';
   h+='<div class="two"><label class="f" for="g-speed">Average speed (mph)<input type="number" id="g-speed" inputmode="decimal" step="0.1" min="5" max="40" value="'+esc(s.speed)+'"></label>'+
-     '<label class="f" for="g-days">Riding days a week<input type="number" id="g-days" inputmode="numeric" step="1" min="1" max="7" value="'+esc(s.days)+'"></label></div></div>';
+     '<label class="f" for="g-days">Riding days a week<input type="number" id="g-days" inputmode="numeric" step="1" min="1" max="7" value="'+esc(s.days)+'"></label></div>'+
+     '<div class="two"><label class="f" for="g-rflat">Resistance on the flat<input type="number" id="g-rflat" inputmode="numeric" step="5" min="10" max="60" value="'+esc(s.resFlat||30)+'"></label>'+
+     '<label class="f" for="g-rmax">Resistance on steep climbs<input type="number" id="g-rmax" inputmode="numeric" step="5" min="30" max="100" value="'+esc(s.resMax||70)+'"></label></div>'+
+     '<p class="note">The resistance plan on the Journey tab runs from your flat figure to your steep-climb figure, which it uses for gradients of 8% and over.</p></div>';
   h+='<div class="rows" style="margin-top:20px"><div class="row"><span class="k">Target arrival</span><span class="v">'+nice(st.goalDate)+'</span></div>'+
     '<div class="row"><span class="k">Needed each week from today</span><span class="v">'+mi(st.need)+' mi<small>about '+fmt(hrs,1)+' hours at '+esc(s.speed)+' mph</small></span></div>'+
     '<div class="row"><span class="k">Per ride</span><span class="v">'+mi(perRide)+' mi<small>'+esc(s.days)+' rides, '+(7-Math.min(7,+s.days||4))+' recovery days</small></span></div>'+
@@ -1144,6 +1152,8 @@ document.addEventListener("change",e=>{
   if(t.id==="g-date"&&t.value){s.goalDate=t.value;}
   else if(t.id==="g-speed"){const v=parseFloat(t.value);if(v>=5&&v<=40)s.speed=Math.round(v*10)/10;}
   else if(t.id==="g-days"){const v=parseInt(t.value,10);if(v>=1&&v<=7)s.days=v;}
+  else if(t.id==="g-rflat"){const v=parseInt(t.value,10);if(v>=10&&v<=60)s.resFlat=v;}
+  else if(t.id==="g-rmax"){const v=parseInt(t.value,10);if(v>=30&&v<=100)s.resMax=v;}
   else if(t.id==="restore-file"){const f=t.files&&t.files[0];if(f){const rd=new FileReader();rd.onload=()=>restoreFrom(String(rd.result));rd.readAsText(f);}t.value="";return;}
   else return;
   persist();renderJourney();renderProfile();
