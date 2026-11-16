@@ -384,13 +384,37 @@ async function ensureProfile(){
 }
 const eAt=(p,m)=>{const i=Math.max(0,Math.min(p.e.length-1,m/PSTEP)),a=Math.floor(i),b=Math.min(p.e.length-1,a+1);return p.e[a]+(p.e[b]-p.e[a])*(i-a);};
 /* rule-of-thumb mapping from road gradient to Peloton resistance and cadence */
+/* rule-of-thumb mapping from road gradient to Peloton resistance and cadence: about 6 points of resistance per 1% of climb */
 function effort(g){
-  if(g<=-2)return {res:"20–25",cad:"90–100",word:"Downhill"};
-  if(g<1)return {res:"30–35",cad:"85–95",word:g<-.5?"Gently down":"Flat"};
-  if(g<3)return {res:"35–45",cad:"80–90",word:"Gentle climb"};
-  if(g<5)return {res:"45–55",cad:"70–80",word:"Climbing"};
-  if(g<7)return {res:"55–65",cad:"60–75",word:"Steep climb"};
-  return {res:"65–75",cad:"55–65",word:"Very steep"};
+  if(g<=-4)return {res:"20–25",cad:"95–105",word:"Fast descent",lo:20};
+  if(g<=-1.5)return {res:"25–30",cad:"90–100",word:"Downhill",lo:25};
+  if(g<1.5)return {res:"30–35",cad:"85–95",word:g<-.5?"Gently down":"Flat",lo:30};
+  const r=Math.min(85,30+6*g),lo=Math.min(80,Math.floor(r/5)*5);
+  const cad=g<3?"80–90":g<5?"70–80":g<7?"65–75":g<9?"60–70":"55–65";
+  const word=g<3?"Gentle climb":g<5?"Climb":g<7?"Steep climb":g<9?"Very steep":"Wall";
+  return {res:lo+"–"+(lo+5),cad,word,lo};
+}
+/* climb rating in the style of cycling's climb categories: length in metres times average gradient */
+function climbCat(lenMi,g){
+  if(g<2)return "";const s=lenMi*1609.34*g;
+  return s>=80000?"HC":s>=64000?"Cat 1":s>=32000?"Cat 2":s>=16000?"Cat 3":s>=8000?"Cat 4":"";
+}
+/* split the road into stretches of downhill, flat and climbing, merging slivers */
+function sections(hAt,m0,span,step){
+  const kind=g=>g<=-1.5?-1:g<1.5?0:1,out=[];
+  for(let m=0;m<span-1e-9;m+=step){const b=Math.min(span,m+step),g=(hAt(m0+b)-hAt(m0+m))/((b-m)*1609.34)*100,k=kind(g),l=out[out.length-1];
+    if(l&&l.k===k)l.b=b;else out.push({k,a:m,b});}
+  const minLen=Math.max(.4,step*2);
+  for(let guard=0;guard<500;guard++){
+    let wi=-1,wl=1e9;out.forEach((s,i)=>{const L=s.b-s.a;if(L<minLen&&L<wl){wl=L;wi=i;}});
+    if(wi<0&&out.length<=10)break;
+    if(wi<0){out.forEach((s,i)=>{const L=s.b-s.a;if(L<wl){wl=L;wi=i;}});}
+    const s=out[wi],L=out[wi-1],R=out[wi+1],t=!L?R:!R?L:(L.b-L.a>=R.b-R.a?L:R);
+    if(!t)break;t.a=Math.min(t.a,s.a);t.b=Math.max(t.b,s.b);out.splice(wi,1);
+    for(let i=out.length-1;i>0;i--)if(out[i].k===out[i-1].k){out[i-1].b=out[i].b;out.splice(i,1);}
+  }
+  return out.map(s=>{let up=0,mx=-99;for(let m=s.a;m<s.b-1e-9;m+=step){const b=Math.min(s.b,m+step),d=hAt(m0+b)-hAt(m0+m);if(d>0)up+=d;const g=d/((b-m)*1609.34)*100;if(g>mx)mx=g;}
+    const g=(hAt(m0+s.b)-hAt(m0+s.a))/((s.b-s.a)*1609.34)*100;return {a:s.a,b:s.b,g,up,mx,cat:climbCat(s.b-s.a,g)};});
 }
 const ft=m=>Math.round(m*3.28084);
 /* detailed heights for the next stretch of road, from the 90 m Copernicus model via Open-Meteo (standalone version only) */
@@ -453,16 +477,15 @@ function aheadHTML(st){
      '<text x="'+(W-2)+'" y="'+(Y(hi)-4)+'" text-anchor="end">'+fmt(hi)+' m</text><text x="'+(W-2)+'" y="'+(Y(lo)+12)+'" text-anchor="end">'+fmt(lo)+' m</text>'+
      '<text x="0" y="'+(H+15)+'">Now</text><text x="'+W+'" y="'+(H+15)+'" text-anchor="end">+'+mi(span)+' mi</text></svg>'+
      '<div class="legend">'+[["Down",-3],["Flat",0],["2%",2],["4%",4],["6%",6],["8%+",8]].map(x=>'<span><i style="background:'+slopeCol(x[1])+'"></i>'+x[0]+'</span>').join("")+'</div>';
-  /* resistance guide in five-mile blocks */
-  h+='<p class="eyebrow" style="margin-top:16px">Ride it on your Peloton</p><div class="list" style="margin-top:6px">';
-  for(let a=0;a<Math.min(25,span);a+=5){
-    const b=Math.min(span,a+5),ea=hAt(m0+a),eb=hAt(m0+b),g=(eb-ea)/((b-a)*1609.34)*100;
-    let mx=0,up=0;const st2=f?FSTEP:PSTEP;
-    for(let m=a;m+win<=b+1e-9;m+=st2){const s=(hAt(m0+m+win)-hAt(m0+m))/(win*1609.34)*100;if(s>mx)mx=s;}
-    for(let m=a;m<b;m+=st2){const d=hAt(m0+Math.min(b,m+st2))-hAt(m0+m);if(d>0)up+=d;}
-    const ef=effort(g),hard=effort(mx);
-    h+='<div class="item blk"><span class="chip" style="background:linear-gradient(180deg,'+slopeCol(mx)+','+slopeCol(g)+')"></span><span class="t"><b>Miles '+mi(a)+'–'+mi(b)+' · '+ef.word+'</b><span>'+(Math.abs(g)<.05?"0.0":(g>0?"+":"")+g.toFixed(1))+'% average, '+fmt(up)+' m of climbing'+(mx-g>1.5?". Steepest half mile about "+mx.toFixed(1)+"%: "+hard.res+" there":"")+'</span></span><span class="r"><b class="res">'+ef.res+'</b><span>resistance</span><span>'+ef.cad+' rpm</span></span></div>';
-  }
+  /* resistance plan, stretch by stretch */
+  const secs=sections(hAt,m0,Math.min(25,span),f?FSTEP:PSTEP),climbs=secs.filter(x=>x.g>=1.5),gain=secs.reduce((t,x)=>t+x.up,0);
+  const hardest=climbs.slice().sort((x,y)=>(y.b-y.a)*y.g-(x.b-x.a)*x.g)[0];
+  h+='<p class="eyebrow" style="margin-top:16px">Ride it on your Peloton</p><p class="sub" style="margin:4px 0 0">Next '+mi(Math.min(25,span))+' miles: '+(climbs.length?climbs.length+(climbs.length===1?" climb":" climbs")+", ":"no real climbs, ")+fmt(gain)+' m of climbing'+(hardest&&hardest.cat?". Hardest is a "+hardest.cat+" at mile "+fmt(hardest.a,1):"")+'.</p><div class="list" style="margin-top:8px">';
+  secs.forEach(x=>{
+    const ef=effort(x.g),peak=effort(x.mx),len=x.b-x.a;
+    const what=x.g>=1.5?(x.cat?'<span class="cat">'+x.cat+'</span>':"")+ef.word:ef.word;
+    h+='<div class="item blk"><span class="chip" style="background:linear-gradient(180deg,'+slopeCol(Math.max(x.g,x.mx))+','+slopeCol(x.g)+')"></span><span class="t"><b>Mile '+fmt(x.a,1)+'–'+fmt(x.b,1)+' · '+what+'</b><span>'+fmt(len,1)+' mi at '+(Math.abs(x.g)<.05?"0.0":(x.g>0?"+":"")+x.g.toFixed(1))+'%'+(x.up>=5?', '+fmt(x.up)+' m up':'')+(x.g>=1.5&&peak.lo>ef.lo?'. Steepest '+x.mx.toFixed(1)+'%: push to '+peak.res:'')+'</span></span><span class="r"><b class="res">'+ef.res+'</b><span>resistance</span><span>'+ef.cad+' rpm</span></span></div>';
+  });
   h+='</div><p class="note">'+(f?"Heights from the Copernicus 90 m elevation model via Open-Meteo, so climbs here are close to the real road.":STANDALONE?"Loading detailed heights for this stretch. Until then these figures come from coarse data with points about 11 miles apart.":"These figures come from coarse terrain data with points about 11 miles apart, so short steep climbs are smoothed out. The GitHub version of the app loads detailed 90 m heights for real gradients.")+
     ' Resistance is a guide: Peloton publishes no gradient-to-resistance scale.</p></div>';
   return h;
