@@ -415,6 +415,7 @@ function sections(hAt,m0,span,step,win){
     const t=!L?R:!R?L:(Math.abs(L.k-s.k)<Math.abs(R.k-s.k)||(Math.abs(L.k-s.k)===Math.abs(R.k-s.k)&&L.b-L.a>=R.b-R.a)?L:R);
     if(!t)break;t.a=Math.min(t.a,s.a);t.b=Math.max(t.b,s.b);out.splice(wi,1);stat(t);tidy();
   }
+  out.forEach(stat);
   return out.map(s=>{let up=0,mx=-99;
     for(let m=s.a;m<s.b-1e-9;m+=step){const b=Math.min(s.b,m+step),d=hAt(m0+b)-hAt(m0+m);if(d>0)up+=d;}
     for(let m=s.a;m+win<=s.b+1e-9;m+=step){const g=(hAt(m0+m+win)-hAt(m0+m))/(win*1609.34)*100;if(g>mx)mx=g;}
@@ -443,8 +444,10 @@ async function ensureFine(){
       const url="https://api.open-meteo.com/v1/elevation?latitude="+chunk.map(p=>p[1].toFixed(5)).join(",")+"&longitude="+chunk.map(p=>p[0].toFixed(5)).join(",");
       const r=await fetch(url);if(!r.ok)throw new Error("HTTP "+r.status);
       const j=await r.json();if(!j||!Array.isArray(j.elevation)||j.elevation.length!==chunk.length)throw new Error("bad");
-      j.elevation.forEach(v=>out.push(+v));
+      j.elevation.forEach(v=>out.push(v==null||!isFinite(+v)?NaN:+v));
     }
+    /* fill any gaps in the height data from the nearest known neighbour */
+    const ok=v=>typeof v==="number"&&!isNaN(v);for(let i=0;i<out.length;i++)if(!ok(out[i])){let k=1;while(k<out.length&&!ok(out[i-k])&&!ok(out[i+k]))k++;out[i]=ok(out[i-k])?out[i-k]:ok(out[i+k])?out[i+k]:0;}
     /* light smoothing over about 300 m removes single-cell spikes from bridges and cuttings */
     const e=out.map((v,i)=>{let s=0,c=0;for(let k=Math.max(0,i-1);k<=Math.min(out.length-1,i+1);k++){s+=out[k];c++;}return s/c;});
     const f={start,e:e.map(v=>Math.round(v*10)/10)};
@@ -524,10 +527,10 @@ function renderJourney(){
      '<div class="row"><span class="k">Estimated arrival</span><span class="v">'+(done?"Arrived":st.eta?nice(st.eta):"After your first rides")+(st.eta?'<small>at '+mi(st.rate)+' mi a week lately</small>':'')+'</span></div></div>'+
      '<div class="trio"><div><b>'+mi(st.thisWeek)+'</b><span>miles this week</span></div><div><b>'+st.streak+'</b><span>week streak</span></div><div><b>'+st.rides.length+'</b><span>rides</span></div></div>';
   if(!done&&st.rides.length)h+='<p class="note">To arrive by '+nice(st.goalDate)+' you need about '+mi(st.need)+' miles a week from here. Change the target in Profile.</p>';
-  if(!done)h+=aheadHTML(st);
+  if(!done){try{h+=aheadHTML(st);}catch(e){console.error(e);h+='<div class="sect"><h3>The road ahead</h3><p class="note">The resistance plan could not be worked out for this stretch.</p></div>';}}
   $("#j-body").innerHTML=h;
   if(!done&&STANDALONE&&!fineFor(Math.min(st.total,TOTAL)))ensureFine().then(f=>{if(f)renderJourney();});
-  if(!profile()&&!done)ensureProfile().then(p=>{if(p)renderJourney();}).catch(()=>{const m=$("#ahead-msg");if(m)m.textContent="The terrain could not be loaded. Check your connection and reopen the page.";});
+  if(!profile()&&!done)ensureProfile().catch(()=>{const m=$("#ahead-msg");if(m)m.textContent="The terrain could not be loaded. Check your connection and reopen the page.";return null;}).then(p=>{if(p)renderJourney();});
 }
 function renderExplore(){
   const st=stats(),done=st.total>=TOTAL,end=STOPS[STOPS.length-1];
