@@ -650,6 +650,100 @@ function renderProfile(){
     '<p>Your mileage is stored separately from the route, so a route can be refined later without losing a single mile.</p></div></div>';
   $("#v-profile").innerHTML=h;
 }
+/* ---------- Ride mode: a heading-up, tilted view that follows you along the road ---------- */
+const RIDE={open:false,running:false,mi:0,start:0,elapsed:0,last:0,speed:16.3,heading:0,map:null,layers:{},raf:0,lastPan:0,wake:null,zoom:12};
+const bearing=(a,b)=>{const f1=a[1]*RAD,f2=b[1]*RAD,dl=(b[0]-a[0])*RAD;return (Math.atan2(Math.sin(dl)*Math.cos(f2),Math.cos(f1)*Math.sin(f2)-Math.sin(f1)*Math.cos(f2)*Math.cos(dl))/RAD+360)%360;};
+function rideBase(){return Math.min(stats().total,TOTAL);}
+function rideAt(){return Math.min(TOTAL,rideBase()+RIDE.mi);}
+function rideSize(){
+  const st=$("#rv-stage"),W=window.innerWidth,H=window.innerHeight,D=Math.ceil(Math.sqrt(W*W+H*H)*1.15);
+  st.style.width=D+"px";st.style.height=Math.round(D*1.6)+"px";
+  if(RIDE.map)RIDE.map.invalidateSize({pan:false});
+}
+function openRide(){
+  if(TOTAL-rideBase()<.05){toast("You have finished this journey. Plan a new one in Profile.");return;}
+  RIDE.open=true;RIDE.mi=0;RIDE.elapsed=0;RIDE.running=false;RIDE.speed=+S.settings.speed||16.3;
+  const v=$("#ride");v.hidden=false;document.body.classList.add("riding");
+  rideSize();
+  const L=window.L;
+  if(!RIDE.map){
+    RIDE.map=L.map("rv-map",{zoomControl:false,attributionControl:false,dragging:false,touchZoom:false,doubleClickZoom:false,scrollWheelZoom:false,boxZoom:false,keyboard:false,
+      zoomSnap:.25,minZoom:6,maxZoom:15,preferCanvas:true,fadeAnimation:false,zoomAnimation:false,markerZoomAnimation:false});
+    RIDE.layers.cv=L.canvas({padding:.15});
+  }
+  const m=RIDE.map,ly=RIDE.layers;
+  Object.keys(ly).forEach(k=>{if(k!=="cv"&&ly[k]){m.removeLayer(ly[k]);ly[k]=null;}});
+  $("#rv-attr").hidden=!STANDALONE;
+  if(STANDALONE){
+    ly.tiles=L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/"+(isDark()?"dark_all":"voyager")+"/{z}/{x}/{y}{r}.png",{subdomains:"abcd",maxZoom:19,crossOrigin:true}).addTo(m);
+  }else{
+    m.getContainer().style.background=css("--land");
+    if(layers.relief)ly.relief=L.imageOverlay(layers.relief.getElement().src,layers.relief.getBounds(),{interactive:false}).addTo(m);
+  }
+  const ll2=p=>[p[1],p[0]];
+  ly.casing=L.polyline(RT.legs.filter(l=>l.k==="road").map(l=>l.c.map(ll2)),{renderer:ly.cv,interactive:false,weight:11,color:"#FFFFFF",opacity:.9,lineCap:"round",lineJoin:"round"}).addTo(m);
+  ly.todo=L.polyline(RT.legs.filter(l=>l.k==="road").map(l=>l.c.map(ll2)),{renderer:ly.cv,interactive:false,weight:7,color:"#3D7FD9",lineCap:"round",lineJoin:"round"}).addTo(m);
+  ly.sea=L.polyline(RT.legs.filter(l=>l.k!=="road").map(l=>l.c.map(ll2)),{renderer:ly.cv,interactive:false,weight:3,color:"#3D7FD9",dashArray:"6 8"}).addTo(m);
+  ly.done=L.polyline([],{renderer:ly.cv,interactive:false,weight:7,color:css("--route"),lineCap:"round",lineJoin:"round"}).addTo(m);
+  ly.labels=L.layerGroup(STOPS.map(s=>L.marker([s.lat,s.lon],{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:[0,0],html:'<div class="rv-lbl">'+esc(s.n)+'</div>'})}))).addTo(m);
+  const p0=posAt(rideAt()),p1=posAt(rideAt()+.25);RIDE.heading=bearing([p0.lon,p0.lat],[p1.lon,p1.lat]);
+  m.setView([p0.lat,p0.lon],RIDE.zoom,{animate:false});
+  rideDone();rideFrame(true);rideHud();
+  if(STANDALONE&&!fineFor(rideAt()))ensureFine().then(()=>rideHud());
+}
+function rideDone(){
+  const m=rideAt(),out=[];let cur=null,seg=-1;
+  for(const p of PTS){if(p[2]>m)break;if(p[3]!==seg){cur=[];out.push(cur);seg=p[3];}cur.push([p[1],p[0]]);}
+  const q=posAt(m);if(cur)cur.push([q.lat,q.lon]);
+  RIDE.layers.done.setLatLngs(out);
+}
+function rideFrame(force){
+  const now=performance.now();
+  if(RIDE.running){const dt=Math.min(5,(now-RIDE.last)/1000);RIDE.last=now;RIDE.elapsed+=dt;RIDE.mi=Math.min(TOTAL-rideBase(),RIDE.mi+RIDE.speed*dt/3600);
+    if(rideAt()>=TOTAL-1e-6){RIDE.running=false;rideHud();}}
+  const m=rideAt(),p=posAt(m),ahead=posAt(Math.min(TOTAL,m+.3)),behind=posAt(Math.max(0,m-.05));
+  let target=bearing([behind.lon,behind.lat],[ahead.lon,ahead.lat]),d=((target-RIDE.heading+540)%360)-180;
+  RIDE.heading=(RIDE.heading+d*(force?1:.08)+360)%360;
+  const st=$("#rv-stage");st.style.setProperty("--h",RIDE.heading.toFixed(2));
+  st.style.transform="translate(-50%,-50%) perspective(1200px) rotateX(34deg) rotate("+(-RIDE.heading).toFixed(2)+"deg)";
+  if(force||now-RIDE.lastPan>120){RIDE.lastPan=now;RIDE.map.setView([p.lat,p.lon],RIDE.map.getZoom(),{animate:false});rideDone();}
+  if(force||Math.floor(now/500)!==Math.floor((now-17)/500))rideHud();
+  if(RIDE.open)RIDE.raf=requestAnimationFrame(()=>rideFrame(false));
+}
+function rideHud(){
+  if(!RIDE.open)return;
+  const m=rideAt(),ar=around(m),nx=ar.next,f=fineFor(m),p=profile();
+  const hAt=f?(x=>fAt(f,x)):p?(x=>eAt(p,x)):null;
+  let g=0;if(hAt){const a=Math.max(0,m-.15),b=Math.min(TOTAL,m+.15);if(b>a)g=(hAt(b)-hAt(a))/((b-a)*1609.34)*100;}
+  const ef=effort(g);
+  /* the next change in resistance */
+  let nextChange="";
+  if(hAt){for(let x=m+.2;x<Math.min(TOTAL,m+5);x+=.1){const gg=(hAt(Math.min(TOTAL,x+.15))-hAt(x-.15))/(.3*1609.34)*100,e2=effort(gg);if(Math.abs(e2.lo-ef.lo)>=10){nextChange='<span class="rv-next">In '+fmt(x-m,1)+' mi: '+esc(e2.word.toLowerCase())+', resistance '+e2.res+'</span>';break;}}}
+  $("#rv-top").innerHTML='<div class="rv-turn"><span class="rv-arrow" style="transform:rotate('+((nx?bearing([posAt(m).lon,posAt(m).lat],[nx.lon,nx.lat]):0)-RIDE.heading).toFixed(0)+'deg)">↑</span><div><b>'+(nx?esc(nx.n):esc(lastStop().n))+'</b><span>'+(nx?fmt(nx.mi-m,1)+' mi':"Arrived")+' · '+esc(countryAt(m))+'</span></div></div>'+
+    '<div class="rv-res" style="border-color:'+slopeCol(g)+'"><b>'+ef.res+'</b><span>resistance · '+ef.cad+' rpm</span><span>'+(Math.abs(g)<.05?"0.0":(g>0?"+":"")+g.toFixed(1))+'% '+esc(ef.word.toLowerCase())+(f?"":" (approx.)")+'</span></div>'+nextChange;
+  const t=Math.floor(RIDE.elapsed),hh=Math.floor(t/3600),mm=Math.floor(t%3600/60),ss=t%60,clock=(hh?hh+":"+String(mm).padStart(2,"0"):mm)+":"+String(ss).padStart(2,"0");
+  $("#rv-stats").innerHTML='<div><b>'+fmt(RIDE.mi,2)+'</b><span>miles</span></div><div><b>'+clock+'</b><span>time</span></div><div class="rv-speed"><button data-act="rv-slow" aria-label="Slower">−</button><div><b>'+RIDE.speed.toFixed(1)+'</b><span>mph</span></div><button data-act="rv-fast" aria-label="Faster">+</button></div>';
+  $("#rv-go").textContent=RIDE.running?"Pause":RIDE.elapsed>0?"Resume":"Start riding";
+  $("#rv-go").classList.toggle("on",RIDE.running);
+}
+async function rideWake(on){
+  try{if(on&&navigator.wakeLock&&!RIDE.wake)RIDE.wake=await navigator.wakeLock.request("screen");else if(!on&&RIDE.wake){await RIDE.wake.release();RIDE.wake=null;}}catch(e){RIDE.wake=null;}
+}
+function rideToggle(){RIDE.running=!RIDE.running;RIDE.last=performance.now();rideWake(RIDE.running);rideHud();}
+function rideClose(save){
+  RIDE.running=false;rideWake(false);
+  const miles=Math.round(RIDE.mi*100)/100,mins=Math.max(1,Math.round(RIDE.elapsed/60));
+  if(save===undefined&&miles>=.1){
+    sheet(head("Ride mode","Save this ride?")+'<p class="sub">'+mi(miles)+' miles in '+mins+' min. Saving adds it to your journey.</p><div class="stack" style="margin-top:18px"><button class="btn pri" data-act="rv-save">Save '+mi(miles)+' miles</button><button class="btn" data-act="rv-discard">Don\'t save</button><button class="btn ghost" data-act="rv-back">Keep riding</button></div>');
+    $("#scrim").style.zIndex=80;return;
+  }
+  RIDE.open=false;cancelAnimationFrame(RIDE.raf);$("#ride").hidden=true;document.body.classList.remove("riding");$("#scrim").style.zIndex="";
+  if(save&&miles>=.01){const ride={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:today(),miles,mins,title:"Ride mode",notes:"",j:RT.id};
+    change(()=>S.rides.push(ride),mi(miles)+" miles added");}
+  else closeSheet();
+  if(map)setTimeout(()=>{map.invalidateSize();frame(false);},60);
+}
+
 /* ---------- Landing screen ---------- */
 let landingOpen=true;
 function landingText(){}
@@ -1130,6 +1224,16 @@ document.addEventListener("click",async e=>{
   else if(a==="rectab"){recTab=b.dataset.t;renderRecipes();}
   else if(a==="fav"){const id=b.dataset.id,i=S.favs.indexOf(id);if(i>=0)S.favs.splice(i,1);else S.favs.push(id);persist();renderRecipes();recipeSheet(id);}
   else if(a==="goal"){S.settings.goal=b.dataset.g;if(b.dataset.g==="custom"&&!S.settings.goalDate)S.settings.goalDate=stats().goalDate;persist();renderJourney();renderProfile();}
+  else if(a==="ride")openRide();
+  else if(a==="rv-go")rideToggle();
+  else if(a==="rv-end")rideClose();
+  else if(a==="rv-save")rideClose(true);
+  else if(a==="rv-discard")rideClose(false);
+  else if(a==="rv-back"){$("#scrim").style.zIndex="";closeSheet();}
+  else if(a==="rv-slow"){RIDE.speed=Math.max(3,Math.round((RIDE.speed-.5)*10)/10);rideHud();}
+  else if(a==="rv-fast"){RIDE.speed=Math.min(40,Math.round((RIDE.speed+.5)*10)/10);rideHud();}
+  else if(a==="rv-in"&&RIDE.map){RIDE.zoom=Math.min(15,RIDE.map.getZoom()+.75);RIDE.map.setZoom(RIDE.zoom,{animate:false});}
+  else if(a==="rv-out"&&RIDE.map){RIDE.zoom=Math.max(7,RIDE.map.getZoom()-.75);RIDE.map.setZoom(RIDE.zoom,{animate:false});}
   else if(a==="enter")closeLanding();
   else if(a==="enter-plan"){closeLanding();location.hash="profile";show("profile");plan.result=null;setTimeout(planSheet,350);}
   else if(a==="theme"){S.settings.theme=b.dataset.t;applyTheme();persist();renderProfile();}
@@ -1164,12 +1268,12 @@ document.addEventListener("change",e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#scrim").hidden)closeSheet();});
 
 if(window.claude&&window.claude.use)window.claude.use("sample").then(s=>{SAMPLE=s||null;if(s)renderRecipes();}).catch(()=>{});
-window.LWH={get TOTAL(){return TOTAL;},get STOPS(){return STOPS;},get RT(){return RT;},posAt,countryAt,stats,planRoute,loadNet,get state(){return S;},get ROUTES(){return ROUTES;},loadElev,elevAt:(a,b)=>elevAt(a,b),profile:()=>profile(),ensureProfile,setSample(s){SAMPLE=s;},nameDishes};
+window.LWH={get TOTAL(){return TOTAL;},get STOPS(){return STOPS;},get RT(){return RT;},posAt,countryAt,stats,planRoute,loadNet,get state(){return S;},get ROUTES(){return ROUTES;},RIDE,loadElev,elevAt:(a,b)=>elevAt(a,b),profile:()=>profile(),ensureProfile,setSample(s){SAMPLE=s;},nameDishes};
 if(STANDALONE&&"serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 initMap();
 show(location.hash.slice(1));
 landingText();drawLanding();
 loadElev().then(()=>drawLanding()).catch(()=>{});
-window.addEventListener("resize",()=>{if(landingOpen)drawLanding();});
+window.addEventListener("resize",()=>{if(landingOpen)drawLanding();if(RIDE.open)rideSize();});
 initStore();
 })();
