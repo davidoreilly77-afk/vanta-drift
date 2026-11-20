@@ -1,0 +1,15 @@
+{
+  "name": "Vanta Drift",
+  "short_name": "Vanta Drift",
+  "description": "A side-scrolling space shooter. Plays offline once opened.",
+  "start_url": "vanta-drift.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07060f",
+  "theme_color": "#07060f",
+  "icons": [
+    { "src": "img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

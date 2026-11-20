@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vanta Drift">
+<link rel="manifest" href="vanta-drift.webmanifest">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Vanta Drift</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -15,6 +16,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Vanta Drift">
+<link rel="manifest" href="vanta-drift.webmanifest">
 <meta name="theme-color" content="#08070f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Silkscreen&display=swap">
@@ -178,14 +180,14 @@ body.immersive canvas{cursor:none}
   <p class="help key-only">Move <kbd>←↑↓→</kbd>/<kbd>WASD</kbd> · Fire <kbd>Z</kbd>/<kbd>Space</kbd> · Hold and release <kbd>X</kbd> to charge a beam · <kbd>C</kbd> launches or recalls the pod · <kbd>P</kbd> pause · <kbd>M</kbd> music · <kbd>F</kbd> full screen · <kbd>G</kbd> switch 3D / classic 2D graphics · <kbd>V</kbd> switch side view / cockpit view · <kbd>H</kbd> scoreboard. Orange carriers drop capsules: <b style="color:#7fe3ff">L</b> laser, <b style="color:#ff6ad5">P</b> plasma, <b style="color:#ff7a2a">M</b> magma, <b style="color:#bfe9ff">S</b> shield, <b style="color:var(--amber)">D</b> drone, <b style="color:#3fd8c4">B</b> speed.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script src="vendor/three/build/three.min.js"></script>
+<script src="vendor/three/examples/js/shaders/CopyShader.js"></script>
+<script src="vendor/three/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="vendor/three/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="vendor/three/examples/js/postprocessing/RenderPass.js"></script>
+<script src="vendor/three/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="vendor/three/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="vendor/three/examples/js/environments/RoomEnvironment.js"></script>
 <script>
 (()=>{
 const cv=document.getElementById('game');let ctx=cv.getContext('2d');
@@ -480,7 +482,7 @@ let p,shots,eb,enemies,pickups,parts,score,lives;
 const BOSS_AT=3900;
 /* ---------- level complete: fireworks and WELL DONE ---------- */
 let CEL=null,FW=[],BUG=null,runId=0,celTxt=null,coins=0,COINS=[];
-const VERSION='v27 · 9 NOV 2026';
+const VERSION='v28 · 20 NOV 2026';
 function makeCelTxt(){const w=380,h=110,c=document.createElement('canvas');c.width=w*S;c.height=h*S;const g=c.getContext('2d');g.scale(S,S);g.textAlign='center';g.textBaseline='middle';
   g.font='700 46px "Chakra Petch", sans-serif';const gr=g.createLinearGradient(0,h/2-24,0,h/2+24);gr.addColorStop(0,'#fff7d6');gr.addColorStop(.5,'#ffb84a');gr.addColorStop(1,'#ff4f7b');
   g.shadowColor='#ff9a3a';g.shadowBlur=28*S;g.fillStyle=gr;g.fillText('WELL DONE',w/2,h/2);g.shadowBlur=0;g.lineWidth=1;g.strokeStyle='rgba(255,255,255,.55)';g.strokeText('WELL DONE',w/2,h/2);return {c,w,h}}
@@ -2525,5 +2527,6 @@ function frame(now){const dt=Math.min(.033,(now-last)/1000);last=now;pollPad();i
 requestAnimationFrame(frame);
 })();
 </script>
+<script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))addEventListener('load',()=>navigator.serviceWorker.register('vanta-sw.js').catch(()=>{}))</script>
 </body>
 </html>
